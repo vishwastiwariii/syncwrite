@@ -1,17 +1,16 @@
-import User from "../models/User";
+import User from "../models/User.js";
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
-import { config } from "../config/env";
+import { config } from "../config/env.js"; 
 
 
-
-export default async function registerUser({name, email, password}){
+export async function registerUser({name, email, password}){
     const existingUser = await User.findOne({ email }); 
     if(existingUser){
         throw new Error("Email already registered")
     }
 
-    const hashedPassword = bcrypt.hash(password, 10)
+    const hashedPassword = await bcrypt.hash(password, 10)
 
     const user = await User.create({
         name, 
@@ -30,19 +29,19 @@ export default async function registerUser({name, email, password}){
 
 
 
-export default async function loginUser({ email, password }){
+export async function loginUser({ email, password }){
     const user = await User.findOne({ email })
 
     if(!user){
         throw new Error("Invalid Credentials")
     }
 
-    const isMatch = bcrypt.compare(password, user.passwordHash)
+    const isMatch = await bcrypt.compare(password, user.passwordHash)
     if(!isMatch){
         throw new Error("Invalid Credentials")
     }
 
-    const token = jwt.sign({ id: user._id }, config.jwtsecret)
+    const token = jwt.sign({ userId: user._id }, config.jwtsecret)
 
     return {
         user: {

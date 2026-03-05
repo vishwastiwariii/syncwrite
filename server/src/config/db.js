@@ -1,5 +1,5 @@
-import mongoose, { mongo } from "mongoose"
-import { config } from "./env"
+import mongoose from "mongoose"
+import { config } from "../config/env.js"
 
 
 async function connectDB(){

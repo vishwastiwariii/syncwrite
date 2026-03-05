@@ -1,10 +1,17 @@
-import registerUser from "../services/auth.service.js";
-import loginUser from ""
+import { registerUser, loginUser } from "../services/auth.service.js";
 
-
-async function register(req, res){
+export const register = async(req, res) =>{
     try{ 
-        const result = await registerUser(req.body)
+
+        const isValid = registerSchema.safeParse(req.body)
+        if(!isValid.success){
+            return res.status(400).json({
+                success: false,
+                message: isValid.error.message
+            })
+        }
+
+        const result = await registerUser(isValid.data)
 
         return res.status(201).json({
             success: true, 
@@ -20,8 +27,27 @@ async function register(req, res){
 }
 
 
-async function login(req, res){ 
+export const login = async(req, res) => { 
     try{
-        const result = await loginUser(req.body)
+
+        const isValid = loginSchema.safeParse(req.body)
+        if(!isValid.success){
+            return res.status(400).json({
+                success: false,
+                message: isValid.error.message
+            })
+        }
+        const result = await loginUser(isValid.data)
+
+        return res.status(201).json({
+            success: true, 
+            message: "Login Completed", 
+            data: result
+        })
+    } catch(error){
+        return res.status(400).json({
+        success: false,
+        message: error.message
+      });
     }
 }
