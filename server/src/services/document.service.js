@@ -76,7 +76,14 @@ export async function shareDocument({ documentId, userId, email, role }){
         throw new Error("Already a collaborator of this document")
     }
 
-    
+    document.collaborators.push({
+        userId: user._id,
+        role
+    })
+
+    await document.save()
+
+    return document
 }
 
 
@@ -114,6 +121,23 @@ export async function getDocumentsById({ documentId, userId }){
 }
 
 
-export async function deleteDocument(){
+export async function deleteDocument({ documentId , userId}){
 
+    const document = await Document.findById(documentId)
+
+    if(!document){
+        throw new Error("Invalid Document Id")
+    }
+
+    const isOwner = document.createdBy.toString() === userId.toString()
+
+    if(!isOwner){
+        throw new Error("Only Owner can delete this document")
+    }
+
+    await document.deleteOne()
+
+    return {
+        message: "Document deleted successfully"
+    }
 }
