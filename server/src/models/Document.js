@@ -26,8 +26,8 @@ const DocumentSchema = new Schema(
             }, 
             role: {
                 type: String, 
-                enum: ["EDITOR", "viewer"], 
-                default: "viewer", 
+                enum: ["EDITOR", "VIEWER"], 
+                default: "VIEWER", 
             }
         }], 
         

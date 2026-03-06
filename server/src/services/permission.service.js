@@ -14,7 +14,7 @@ export async function canViewDocument(userId, document){
 }
 
 
-export async function canEditDocument(){
+export async function canEditDocument(userId, document){
     const isOwner = document.createdBy.toString() === userId.toString()
     
     const collaborator = document.collaborators.find(

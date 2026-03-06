@@ -5,16 +5,16 @@ import { canEditDocument, canShareDocument } from "./permission.service.js";
 export async function createDocument({ userId, title, content }) {
 
     const document = await Document.create({
-        title, 
-        content, 
-        createdBy: userId, 
+        title,
+        content,
+        createdBy: userId,
         version: 1
     })
 
     return {
         document: {
             id: document._id,
-            title: document.title, 
+            title: document.title,
             content: document.content,
         }
     }
@@ -22,30 +22,30 @@ export async function createDocument({ userId, title, content }) {
 }
 
 
-export async function updateDocument({ documentId, title, content, userId }){
-    const document = await Document.findById(documentId); 
+export async function updateDocument({ documentId, title, content, userId }) {
+    const document = await Document.findById(documentId);
 
-    if(!document){
+    if (!document) {
         throw new Error("Document does not exist")
     }
 
     canEditDocument(userId, document)
 
-    document.title = title; 
-    document.content = content; 
+    if (title !== undefined) document.title = title;
+    if (content !== undefined) document.content = content;
 
-    document.version += 1; 
+    document.version += 1;
 
-    await document.save(); 
+    await document.save();
 
-    return document; 
+    return document;
 }
 
 
-export async function shareDocument({ documentId, userId, email, role }){
+export async function shareDocument({ documentId, userId, email, role }) {
     const document = await Document.findById(documentId)
 
-    if(!document){
+    if (!document) {
         throw new Error("Document does not exist")
     }
 
@@ -53,7 +53,7 @@ export async function shareDocument({ documentId, userId, email, role }){
 
     const user = await User.findOne({ email })
 
-    if(!user){
+    if (!user) {
         throw new Error("User not found")
     }
 
@@ -61,7 +61,7 @@ export async function shareDocument({ documentId, userId, email, role }){
         (c) => c.userId.toString() === user._id.toString()
     )
 
-    if(alreadyCollaborator){
+    if (alreadyCollaborator) {
         throw new Error("Already a collaborator of this document")
     }
 
@@ -76,7 +76,7 @@ export async function shareDocument({ documentId, userId, email, role }){
 }
 
 
-export async function getUserDocuments({ userId }){
+export async function getUserDocuments({ userId }) {
 
     const documents = await Document.find({
         $or: [
@@ -89,10 +89,10 @@ export async function getUserDocuments({ userId }){
 }
 
 
-export async function getDocumentsById({ documentId, userId }){
-    const document = await Document.findById(documentId); 
+export async function getDocumentsById({ documentId, userId }) {
+    const document = await Document.findById(documentId);
 
-    if(!document){
+    if (!document) {
         throw new Error("Invalid Document Id")
     }
 
@@ -102,7 +102,7 @@ export async function getDocumentsById({ documentId, userId }){
         (collab) => collab.userId.toString() === userId.toString()
     )
 
-    if(!isOwner && !collaborators){
+    if (!isOwner && !collaborators) {
         throw new Error("Invalid Access")
     }
 
@@ -110,17 +110,17 @@ export async function getDocumentsById({ documentId, userId }){
 }
 
 
-export async function deleteDocument({ documentId , userId}){
+export async function deleteDocument({ documentId, userId }) {
 
     const document = await Document.findById(documentId)
 
-    if(!document){
+    if (!document) {
         throw new Error("Invalid Document Id")
     }
 
     const isOwner = document.createdBy.toString() === userId.toString()
 
-    if(!isOwner){
+    if (!isOwner) {
         throw new Error("Only Owner can delete this document")
     }
 

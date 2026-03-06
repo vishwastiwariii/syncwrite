@@ -1,13 +1,13 @@
-import { createDocumentSchema, shareDocumentSchema, updateDocumentSchema } from "../validators/document.validator"
-import { createDocument, deleteDocument, getDocumentsById, getUserDocuments, shareDocument, updateDocument } from "../services/document.service.js"
+import { createDocumentSchema, shareDocumentSchema, updateDocumentSchema } from "../validators/document.validator.js"
+import { createDocument as createDocumentService, deleteDocument as deleteDocumentService, getDocumentsById as getDocumentsByIdService, getUserDocuments as getUserDocumentsService, shareDocument as shareDocumentService, updateDocument as updateDocumentService } from "../services/document.service.js"
 
 
-export const createDocument = async(req, res) => {
-    try{
+export const createDocument = async (req, res) => {
+    try {
         const userId = req.userId
 
         const isValid = createDocumentSchema.safeParse(req.body)
-        if(!isValid.success){
+        if (!isValid.success) {
             return res.status(400).json({
                 success: false,
                 message: isValid.error.message
@@ -16,14 +16,14 @@ export const createDocument = async(req, res) => {
 
         const { title, content } = isValid.data
 
-        const document = await createDocument({ userId, title, content })
+        const document = await createDocumentService({ userId, title, content })
 
         return res.status(201).json({
             success: true,
             message: "Document created successfully",
             data: document
         })
-    } catch(error){
+    } catch (error) {
         return res.status(400).json({
             success: false,
             message: error.message
@@ -32,13 +32,13 @@ export const createDocument = async(req, res) => {
 }
 
 
-export const updateDocument = async(req, res) => {
-    try{
+export const updateDocument = async (req, res) => {
+    try {
         const userId = req.userId
         const documentId = req.params.id
 
         const isValid = updateDocumentSchema.safeParse(req.body)
-            if(!isValid.success){
+        if (!isValid.success) {
             return res.status(400).json({
                 success: false,
                 message: isValid.error.message
@@ -47,15 +47,15 @@ export const updateDocument = async(req, res) => {
 
         const { title, content } = isValid.data
 
-        const document = await updateDocument({ documentId, title, content, userId })
+        const document = await updateDocumentService({ documentId, title, content, userId })
 
         return res.status(200).json({
             success: true,
             message: "Document updated successfully",
             data: document
         })
-        
-    } catch(error){
+
+    } catch (error) {
         return res.status(400).json({
             success: false,
             message: error.message
@@ -64,20 +64,20 @@ export const updateDocument = async(req, res) => {
 }
 
 
-export const deleteDocument = async(req, res) => {
-    try{
+export const deleteDocument = async (req, res) => {
+    try {
         const userId = req.userId
         const documentId = req.params.id
 
-        const document = await deleteDocument({ documentId, userId })
+        const document = await deleteDocumentService({ documentId, userId })
 
         return res.status(200).json({
             success: true,
             message: "Document deleted successfully",
             data: document
         })
-        
-    } catch(error){
+
+    } catch (error) {
         return res.status(400).json({
             success: false,
             message: error.message
@@ -86,18 +86,18 @@ export const deleteDocument = async(req, res) => {
 }
 
 
-export const getUserDocuments = async(req, res) => {
-    try{
+export const getUserDocuments = async (req, res) => {
+    try {
         const userId = req.userId
 
-        const documents = await getUserDocuments({ userId })
+        const documents = await getUserDocumentsService({ userId })
 
         return res.status(200).json({
             success: true,
             message: "Documents fetched successfully",
             data: documents
         })
-    } catch(error){
+    } catch (error) {
         return res.status(400).json({
             success: false,
             message: error.message
@@ -106,19 +106,19 @@ export const getUserDocuments = async(req, res) => {
 }
 
 
-export const getDocumentsById = async(req, res) => {
-    try{
+export const getDocumentsById = async (req, res) => {
+    try {
         const userId = req.userId
         const documentId = req.params.id
 
-        const document = await getDocumentsById({ documentId, userId })
+        const document = await getDocumentsByIdService({ documentId, userId })
 
         return res.status(200).json({
             success: true,
             message: "Document fetched successfully",
             data: document
         })
-    } catch(error){
+    } catch (error) {
         return res.status(400).json({
             success: false,
             message: error.message
@@ -127,13 +127,13 @@ export const getDocumentsById = async(req, res) => {
 }
 
 
-export const shareDocument = async(req, res) => {
-    try{
+export const shareDocument = async (req, res) => {
+    try {
         const userId = req.userId
         const documentId = req.params.id
 
         const isValid = shareDocumentSchema.safeParse(req.body)
-            if(!isValid.success){
+        if (!isValid.success) {
             return res.status(400).json({
                 success: false,
                 message: isValid.error.message
@@ -142,14 +142,14 @@ export const shareDocument = async(req, res) => {
 
         const { email, role } = isValid.data
 
-        const document = await shareDocument({ documentId, userId, email, role })
+        const document = await shareDocumentService({ documentId, userId, email, role })
 
         return res.status(200).json({
             success: true,
             message: "Document shared successfully",
             data: document
         })
-    } catch(error){
+    } catch (error) {
         return res.status(400).json({
             success: false,
             message: error.message
