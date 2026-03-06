@@ -1,5 +1,6 @@
 import Document from "../models/Document.js";
 import User from "../models/User.js";
+import { canEditDocument, canShareDocument } from "./permission.service.js";
 
 export async function createDocument({ userId, title, content }) {
 
@@ -28,17 +29,7 @@ export async function updateDocument({ documentId, title, content, userId }){
         throw new Error("Document does not exist")
     }
 
-    const isOwner = document.createdBy.toString() === userId.toString()
-
-    const collaborator = document.collaborators.find(
-        (c) => c.user.toString() == userId.toString()
-    )
-
-    const canEdit = collaborator && collaborator.role == "EDITOR"
-
-    if(!isOwner && !canEdit){
-        throw new Error("You don't have editor access")
-    }
+    canEditDocument(userId, document)
 
     document.title = title; 
     document.content = content; 
@@ -58,9 +49,7 @@ export async function shareDocument({ documentId, userId, email, role }){
         throw new Error("Document does not exist")
     }
 
-    if(document.createdBy.toString() !== userId.toString()){
-        throw new Error("Only Owners can share document")
-    }
+    canShareDocument(userId, document)
 
     const user = await User.findOne({ email })
 
