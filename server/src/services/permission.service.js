@@ -1,6 +1,6 @@
 
 export async function canViewDocument(){
-
+    
 }
 
 
