@@ -5,8 +5,6 @@ import { socketAuthMiddleware } from "../sockets/auth.socket.js"
 
 const server = createServer(app)
 
-io.use(socketAuthMiddleware)
-
 const io = new Server(server, {
     cors: {
         origin: "*",
@@ -14,6 +12,8 @@ const io = new Server(server, {
         credentials: true
     }
 })
+
+io.use(socketAuthMiddleware)
 
 const getIo = () => {
     if(!io) throw new Error("Socket not initialized")

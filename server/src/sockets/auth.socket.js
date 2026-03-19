@@ -1,22 +1,23 @@
 import jwt from 'jsonwebtoken'
-import { io } from '../config/socket'
-import { config } from '../config/env'
+
+import { config } from '../config/env.js'
 
 
-export async function socketAuthMiddleware() {
-    io.use((socket, next) => {
+export function socketAuthMiddleware(socket, next) {
     const token = socket.handshake.auth.token 
 
     if(!token){
-        throw new Error("Invalid Token")
+        return next(new Error("Authentication error: Token missing"))
     }
 
     try{
         const decodedToken = jwt.verify(token, config.jwtsecret)
-        socket.userId = decodedToken.userId
+        socket.user = {
+            id: decodedToken.userId,
+            name: decodedToken.name
+        }
         next()
     } catch (err) {
-        throw new Error("Invalid Token")
+        next(new Error("Authentication error: Invalid Token"))
     }
-})
 }
