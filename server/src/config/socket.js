@@ -2,6 +2,8 @@ import { Server } from "socket.io"
 import app from "../app.js"
 import { createServer } from "http"
 import { socketAuthMiddleware } from "../sockets/auth.socket.js"
+import { pubClient, subClient } from "./redis.js"
+import { createAdapter } from "@socket.io/redis-adapter"
 
 const server = createServer(app)
 
@@ -12,6 +14,8 @@ const io = new Server(server, {
         credentials: true
     }
 })
+
+io.adapter(createAdapter(pubClient, subClient))
 
 io.use(socketAuthMiddleware)
 
