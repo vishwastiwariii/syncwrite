@@ -11,4 +11,8 @@ app.use(helmet())
 app.use('/auth', authRoutes)
 app.use('/documents', documentRoutes)
 
+app.get("/health", (req, res) => {
+  res.json({ status: "OK" });
+});
+
 export default app
