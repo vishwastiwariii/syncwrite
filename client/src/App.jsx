@@ -1,16 +1,18 @@
-import { useState } from 'react'
 import './App.css'
-import { Auth } from './pages/Auth';
-import { Dashboard } from './pages/Dashboard';
-import { Editor } from './pages/Editor';
+import {Routes, Route, BrowserRouter} from 'react-router-dom'
+import Home from './pages/Home'
+import Editor from './pages/Editor'
+import AuthPage from './pages/AuthPage'
+
 
 export default function App() {
-  const [user, setUser] = useState(!!localStorage.getItem("token"));
-  const [docId, setDocId] = useState(null);
-
-  if (!user) return <Auth setUser={setUser} />;
-
-  if (docId) return <Editor docId={docId} />;
-
-  return <Dashboard openDoc={setDocId} />;
+  return (
+    <BrowserRouter> 
+     <Routes> 
+      <Route path = '/' element = {<Home />}> </Route>
+      <Route path = '/login' element = {<AuthPage />}> </Route>
+      <Route path = '/editor/:id' element = {<Editor />}> </Route>
+     </Routes>
+    </BrowserRouter>
+  )
 }
