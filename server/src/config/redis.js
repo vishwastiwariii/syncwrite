@@ -6,7 +6,11 @@ const pubClient = createClient({
     url: config.redisurl
 })
 
+pubClient.on('error', (err) => console.log('Redis Pub Client Error', err));
+
 const subClient = pubClient.duplicate()
+
+subClient.on('error', (err) => console.log('Redis Sub Client Error', err));
 
 async function connectRedis(){
     try {

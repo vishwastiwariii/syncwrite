@@ -12,6 +12,7 @@ const limiter = rateLimit({
     message: "Too many requests from this IP, please try again after 15 minutes"
 })
 
+router.post('/', authMiddleware, limiter, createDocument)
 router.post('/create', authMiddleware, limiter, createDocument)
 router.patch('/:id', authMiddleware, limiter, updateDocument)
 router.delete('/:id', authMiddleware, limiter, deleteDocument)

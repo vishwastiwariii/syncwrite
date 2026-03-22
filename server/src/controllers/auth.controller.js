@@ -40,7 +40,7 @@ export const login = async(req, res) => {
         }
         const result = await loginUser(isValid.data)
 
-        return res.status(201).json({
+        return res.status(200).json({
             success: true, 
             message: "Login Completed", 
             data: result
