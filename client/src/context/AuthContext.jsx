@@ -24,8 +24,16 @@ export const AuthProvider = ( { children }) => {
     const login = async (email, password) => {
         try { 
             const res = await postRequest('auth/login', {email, password})
-            const token = res.token
+            
+            if (!res.success) {
+                return {
+                    success: false,
+                    message: res.message || "Login Failed"
+                }
+            }
 
+            const token = res.data.token
+            
             localStorage.setItem("token", token); 
             setToken(token)
 
@@ -35,7 +43,7 @@ export const AuthProvider = ( { children }) => {
         } catch(error){
             return {
                 success: false, 
-                message: error?.message || "Login Failed"
+                message: error?.response?.data?.message || error?.message || "Login Failed"
             }
         }
     }
@@ -43,13 +51,20 @@ export const AuthProvider = ( { children }) => {
 
     const register = async (name, email, password) => {
         try{
-            await postRequest('/auth/register', { name, email , password})
+            const res = await postRequest('auth/register', { name, email , password})
+            
+            if (!res.success) {
+                return {
+                    success: false,
+                    message: res.message || "Signup Failed"
+                }
+            }
 
             return await login(email, password)
         } catch(error){
             return {
                 success: false,
-                message: error?.message || "Signup Failed"
+                message: error?.response?.data?.message || error?.message || "Signup Failed"
             }
         }
     }
