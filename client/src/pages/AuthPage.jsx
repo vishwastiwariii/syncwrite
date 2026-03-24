@@ -65,7 +65,7 @@ const AuthPage = () => {
       }
 
       if (res.success) {
-        navigate("/");
+        navigate("/dashboard");
       } else {
         setError(res.message || "Authentication failed");
       }
