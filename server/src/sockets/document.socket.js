@@ -26,33 +26,52 @@ export async function registerDocumentHandler(io, socket) {
     })
 
 
+    socket.on("LEAVE_DOCUMENT", async ({documentId}) => {
+        try {
+            await socket.leave(documentId)
+            const affectedDocs = removeUserFromAllDocuments(socket.id)
+            
+            // If the user was in this doc, update others
+            if (affectedDocs.includes(documentId)) {
+                io.to(documentId).emit("PRESENCE_UPDATE", { 
+                    users: await getUsers(documentId) 
+                })
+            }
+            
+            console.log(`Socket ${socket.id} left document ${documentId}`)
+        } catch (err) {
+            socket.emit("ERROR", { message: err.message })
+        }
+    })
 
-    socket.on("DOCUMENT_UPDATE", async ({ documentId, content, version }) => {
+
+
+    socket.on("DOCUMENT_UPDATE", async ({ documentId, content }) => {
 
         try {
             const document = await Document.findById(documentId)
 
-            if(!documentId){
+            if(!document){
                 return socket.emit("ERROR", { message: "Invalid Document Id" })
             }
 
             await canEditDocument(socket.user.id, document)
-
-            if(version != document.version){
-                throw new Error("Document has been updated by another user")
-            }
 
             document.content = content
             document.version += 1
 
             await document.save()
             
-            io.to(documentId).emit("DOCUMENT_UPDATED", 
+            // Broadcast to OTHER clients only — sender already has the content
+            socket.broadcast.to(documentId).emit("DOCUMENT_UPDATED", 
                 {
                     content: document.content, 
                     version: document.version
                 }
             )
+
+            // Ack the sender with the new version so it stays in sync
+            socket.emit("VERSION_ACK", { version: document.version })
         } catch(err){
             return socket.emit("ERROR", { message: err.message })
         }

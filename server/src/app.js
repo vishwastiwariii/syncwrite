@@ -3,11 +3,12 @@ import authRoutes from "./routes/auth.routes.js";
 import documentRoutes from "./routes/document.routes.js"
 import helmet from "helmet";
 import cors from "cors";
+import { config } from "./config/env.js";
 
 const app = express()
 
 app.use(cors({
-  origin: "http://localhost:5173", // Vite default port
+  origin: config.clientUrl,
   credentials: true
 }))
 

@@ -13,7 +13,6 @@ const limiter = rateLimit({
 })
 
 router.post('/', authMiddleware, limiter, createDocument)
-router.post('/create', authMiddleware, limiter, createDocument)
 router.patch('/:id', authMiddleware, limiter, updateDocument)
 router.delete('/:id', authMiddleware, limiter, deleteDocument)
 router.get('/:id', authMiddleware, limiter, getDocumentsById)

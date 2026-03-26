@@ -29,7 +29,7 @@ export async function updateDocument({ documentId, title, content, userId }) {
         throw new Error("Document does not exist")
     }
 
-    canEditDocument(userId, document)
+    await canEditDocument(userId, document)
 
     if (title !== undefined) document.title = title;
     if (content !== undefined) document.content = content;
@@ -49,7 +49,7 @@ export async function shareDocument({ documentId, userId, email, role }) {
         throw new Error("Document does not exist")
     }
 
-    canShareDocument(userId, document)
+    await canShareDocument(userId, document)
 
     const user = await User.findOne({ email })
 

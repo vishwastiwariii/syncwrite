@@ -4,12 +4,13 @@ import { createServer } from "http"
 import { socketAuthMiddleware } from "../sockets/auth.socket.js"
 import { pubClient, subClient } from "./redis.js"
 import { createAdapter } from "@socket.io/redis-adapter"
+import { config } from "./env.js"
 
 const server = createServer(app)
 
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: config.clientUrl,
         methods: ["GET", "POST"],
         credentials: true
     }
