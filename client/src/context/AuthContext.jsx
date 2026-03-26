@@ -1,24 +1,33 @@
-import { useEffect } from "react";
 import { useState } from "react"
-import { createContext } from "react"
 import { postRequest } from "../services/apiHelper";
-import { useContext } from "react";
+import { AuthContext } from "./authContext";
 
 
-const AuthContext = createContext()
+/* ── JWT decode helper (no library needed) ── */
+function parseJwtPayload(token) {
+    try {
+        const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        return JSON.parse(atob(base64));
+    } catch {
+        return null;
+    }
+}
+
+/* ── Hydrate from localStorage (sync, before first render) ── */
+function getInitialToken() {
+    return localStorage.getItem("token") || null;
+}
+
+function getInitialUserId() {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = parseJwtPayload(token);
+    return payload?.userId || null;
+}
 
 export const AuthProvider = ( { children }) => {
-    const [token, setToken] = useState(null); 
-    const [loading, setLoading] = useState(true)
-
-    // check for session 
-    useEffect(()=>{
-        const storedToken = localStorage.getItem("token")
-        if(storedToken){
-            setToken(storedToken)
-        }
-        setLoading(false)
-    },[])
+    const [token, setToken] = useState(getInitialToken);
+    const [userId, setUserId] = useState(getInitialUserId);
 
 
     const login = async (email, password) => {
@@ -32,10 +41,12 @@ export const AuthProvider = ( { children }) => {
                 }
             }
 
-            const token = res.data.token
+            const newToken = res.data.token
             
-            localStorage.setItem("token", token); 
-            setToken(token)
+            localStorage.setItem("token", newToken); 
+            setToken(newToken)
+            const payload = parseJwtPayload(newToken);
+            if (payload?.userId) setUserId(payload.userId);
 
             return {
                 success: true
@@ -72,6 +83,7 @@ export const AuthProvider = ( { children }) => {
     const logout = () => {
         localStorage.removeItem("token")
         setToken(null)
+        setUserId(null)
     }
 
     return (
@@ -79,8 +91,9 @@ export const AuthProvider = ( { children }) => {
         value={
         {
             token, 
+            userId,
             isAuthenticated: !!token, 
-            loading, 
+            loading: false, 
             login, 
             register, 
             logout
@@ -89,8 +102,4 @@ export const AuthProvider = ( { children }) => {
             {children}
         </AuthContext.Provider>
     )
-}
-
-export const useAuth = () => {
-    return useContext(AuthContext)
 }

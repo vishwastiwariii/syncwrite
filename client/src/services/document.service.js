@@ -20,4 +20,8 @@ export const documentService = {
     async deleteDocument(id) {
         return await deleteRequest(`/documents/${id}`);
     },
+
+    async shareDocument(id, email, role) {
+        return await postRequest(`/documents/${id}/share`, { email, role });
+    },
 };
