@@ -13,14 +13,6 @@ export const createSocket = () => {
     auth: { token },
   });
 
-  socket.on('connect', () => {
-    console.log("Socket Connected")
-  })
-
-  socket.on('disconnect', () => {
-    console.log("Socket Disconnected")
-  })
-
   return socket;
 };
 

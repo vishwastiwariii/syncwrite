@@ -21,7 +21,6 @@ export const useSocket = (documentId) => {
 
     const handleConnect = () => {
       socket.emit("JOIN_DOCUMENT", { documentId });
-      console.log("[useSocket] Joined document room:", documentId);
     };
 
     if (socket.connected) {
@@ -31,7 +30,6 @@ export const useSocket = (documentId) => {
     socket.on("connect", handleConnect);
 
     return () => {
-      console.log("[useSocket] Cleaning up socket for document:", documentId);
       socket.off("connect", handleConnect);
       disconnectSocket();
       socketRef.current = null;
