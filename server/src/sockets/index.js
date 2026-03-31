@@ -1,13 +1,14 @@
 import { registerDocumentHandler } from "./document.socket.js"
+import logger from "../config/logger.js"
 
 export async function registerSocketHandlers(io) {
     io.on("connection", (socket) => {
-    console.log("User connected", socket.id)
+    logger.info(`User connected: ${socket.id}`)
 
-    registerDocumentHandler(io, socket), 
+    registerDocumentHandler(io, socket)
 
     socket.on("disconnect", () => {
-        console.log("User disconnected", socket.id)
+        logger.info(`User disconnected: ${socket.id}`)
     })
 })
 }

@@ -1,5 +1,6 @@
 import mongoose from "mongoose"
 import { config } from "../config/env.js"
+import logger from "../config/logger.js"
 
 
 async function connectDB(){
@@ -9,7 +10,7 @@ async function connectDB(){
     }
 
     await mongoose.connect(config.db)
-    console.log("Database connected")
+    logger.info("Database connected")
     return mongoose.connection
 }
 

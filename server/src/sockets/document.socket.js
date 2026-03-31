@@ -2,6 +2,7 @@ import Document from "../models/Document.js"
 import { canViewDocument, canEditDocument } from "../services/permission.service.js"
 import handleCursorMove from "./cursor.manager.js"
 import { addUsers, getUsers, removeUserFromAllDocuments } from "./presence.manager.js"
+import logger from "../config/logger.js"
 
 export async function registerDocumentHandler(io, socket) {
     
@@ -19,7 +20,7 @@ export async function registerDocumentHandler(io, socket) {
 
             io.to(documentId).emit("PRESENCE_UPDATE", { users: await getUsers(documentId) })
 
-            console.log(`Socket ${socket.id} joined document ${documentId}`)
+            logger.info(`Socket ${socket.id} joined document ${documentId}`)
         } catch (err) {
             socket.emit("ERROR", { message: err.message })
         }
@@ -31,14 +32,13 @@ export async function registerDocumentHandler(io, socket) {
             await socket.leave(documentId)
             const affectedDocs = removeUserFromAllDocuments(socket.id)
             
-            // If the user was in this doc, update others
             if (affectedDocs.includes(documentId)) {
                 io.to(documentId).emit("PRESENCE_UPDATE", { 
                     users: await getUsers(documentId) 
                 })
             }
             
-            console.log(`Socket ${socket.id} left document ${documentId}`)
+            logger.info(`Socket ${socket.id} left document ${documentId}`)
         } catch (err) {
             socket.emit("ERROR", { message: err.message })
         }
@@ -62,7 +62,6 @@ export async function registerDocumentHandler(io, socket) {
 
             await document.save()
             
-            // Broadcast to OTHER clients only — sender already has the content
             socket.broadcast.to(documentId).emit("DOCUMENT_UPDATED", 
                 {
                     content: document.content, 
@@ -70,7 +69,6 @@ export async function registerDocumentHandler(io, socket) {
                 }
             )
 
-            // Ack the sender with the new version so it stays in sync
             socket.emit("VERSION_ACK", { version: document.version })
         } catch(err){
             return socket.emit("ERROR", { message: err.message })
@@ -85,7 +83,6 @@ export async function registerDocumentHandler(io, socket) {
 
 
     socket.on("disconnect", async () => {
-        // remove user from all documents
         const affectedDocs = removeUserFromAllDocuments(socket.id)
 
         for (const documentId of affectedDocs) {
@@ -94,7 +91,6 @@ export async function registerDocumentHandler(io, socket) {
             })
         }
 
-        console.log(`Disconnected: ${socket.id}`)
+        logger.info(`Socket disconnected: ${socket.id}`)
     })
 }
-
