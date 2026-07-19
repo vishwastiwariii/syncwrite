@@ -1,13 +1,21 @@
 import Document from "../models/Document.js"
 import { canViewDocument, canEditDocument } from "../services/permission.service.js"
 import handleCursorMove from "./cursor.manager.js"
-import { addUsers, getUsers, removeUserFromAllDocuments } from "./presence.manager.js"
+import { addUsers, getUsers, refreshPresence, removeUserFromAllDocuments } from "./presence.manager.js"
 import logger from "../config/logger.js"
+import {
+    docUpdateLimiter,
+    cursorMoveLimiter,
+    joinDocumentLimiter,
+    checkSocketLimit
+} from "../config/rateLimiter.js"
 
 export async function registerDocumentHandler(io, socket) {
     
     socket.on("JOIN_DOCUMENT", async ({documentId}) => {
         try {
+            if (!await checkSocketLimit(joinDocumentLimiter, socket, "JOIN_DOCUMENT")) return
+
             const document = await Document.findById(documentId)
 
             if (!document) {
@@ -30,7 +38,7 @@ export async function registerDocumentHandler(io, socket) {
     socket.on("LEAVE_DOCUMENT", async ({documentId}) => {
         try {
             await socket.leave(documentId)
-            const affectedDocs = removeUserFromAllDocuments(socket.id)
+            const affectedDocs = await removeUserFromAllDocuments(socket.id)
             
             if (affectedDocs.includes(documentId)) {
                 io.to(documentId).emit("PRESENCE_UPDATE", { 
@@ -53,6 +61,8 @@ export async function registerDocumentHandler(io, socket) {
     socket.on("DOCUMENT_UPDATE", async ({ documentId, content, baseVersion }) => {
 
         try {
+            if (!await checkSocketLimit(docUpdateLimiter, socket, "DOCUMENT_UPDATE")) return
+
             const document = await Document.findById(documentId)
 
             if(!document){
@@ -90,6 +100,9 @@ export async function registerDocumentHandler(io, socket) {
             )
 
             socket.emit("VERSION_ACK", { version: updated.version })
+
+            // Keep this editor's presence alive while they're actively editing.
+            await refreshPresence(documentId)
         } catch(err){
             return socket.emit("ERROR", { message: err.message })
         }
@@ -97,13 +110,17 @@ export async function registerDocumentHandler(io, socket) {
     })
 
 
-    socket.on("CURSOR_MOVE", (data) => {
+    socket.on("CURSOR_MOVE", async (data) => {
+        if (!await checkSocketLimit(cursorMoveLimiter, socket, "CURSOR_MOVE")) return
         handleCursorMove(data, io, socket)
+
+        // Cursor activity is the most reliable "still here" signal — refresh TTL.
+        await refreshPresence(data.documentId)
     })
 
 
     socket.on("disconnect", async () => {
-        const affectedDocs = removeUserFromAllDocuments(socket.id)
+        const affectedDocs = await removeUserFromAllDocuments(socket.id)
 
         for (const documentId of affectedDocs) {
             io.to(documentId).emit("PRESENCE_UPDATE", { 

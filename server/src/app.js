@@ -6,9 +6,15 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { config } from "./config/env.js";
 import logger from "./config/logger.js";
+import { rateLimit } from "express-rate-limit"
 
 
 const app = express()
+
+const limiter = new rateLimit({
+  windowMs: 1000 * 60, 
+  limit: 100
+})
 
 app.use(cors({
   origin: config.clientUrl,
@@ -18,6 +24,7 @@ app.use(cors({
 app.use(express.json({limit: "1mb"}))
 app.use(cookieParser())
 app.use(helmet())
+app.use(limiter())
 
 app.use('/auth', authRoutes)
 app.use('/documents', documentRoutes)
