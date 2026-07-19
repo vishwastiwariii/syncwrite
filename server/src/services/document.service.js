@@ -22,7 +22,7 @@ export async function createDocument({ userId, title, content }) {
 }
 
 
-export async function updateDocument({ documentId, title, content, userId }) {
+export async function updateDocument({ documentId, title, content, baseVersion, userId }) {
     const document = await Document.findById(documentId);
 
     if (!document) {
@@ -31,14 +31,46 @@ export async function updateDocument({ documentId, title, content, userId }) {
 
     await canEditDocument(userId, document)
 
-    if (title !== undefined) document.title = title;
-    if (content !== undefined) document.content = content;
+    // Title-only updates are metadata and don't participate in version guarding,
+    // so they must NOT bump the content version (that would desync the socket
+    // editing path and cause spurious conflicts).
+    if (content === undefined) {
+        if (title !== undefined) document.title = title;
+        await document.save();
+        return document;
+    }
 
-    document.version += 1;
+    // Content update: guard against a stale base version.
+    if (baseVersion === undefined) {
+        const err = new Error("baseVersion is required to update content")
+        err.statusCode = 400;
+        throw err;
+    }
 
-    await document.save();
+    const set = { content };
+    if (title !== undefined) set.title = title;
 
-    return document;
+    // Atomic guarded write: only lands if the document is still at baseVersion.
+    const updated = await Document.findOneAndUpdate(
+        { _id: documentId, version: baseVersion },
+        { $set: set, $inc: { version: 1 } },
+        { new: true }
+    );
+
+    if (!updated) {
+        // Document exists (checked above) but the version moved — conflict.
+        // Attach the server's current state so the caller can merge or refetch.
+        const current = await Document.findById(documentId);
+        const err = new Error("Version conflict: document was updated by someone else")
+        err.statusCode = 409;
+        err.conflict = {
+            currentVersion: current?.version,
+            content: current?.content
+        };
+        throw err;
+    }
+
+    return updated;
 }
 
 

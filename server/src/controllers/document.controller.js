@@ -45,9 +45,9 @@ export const updateDocument = async (req, res) => {
             })
         }
 
-        const { title, content } = isValid.data
+        const { title, content, baseVersion } = isValid.data
 
-        const document = await updateDocumentService({ documentId, title, content, userId })
+        const document = await updateDocumentService({ documentId, title, content, baseVersion, userId })
 
         return res.status(200).json({
             success: true,
@@ -56,9 +56,11 @@ export const updateDocument = async (req, res) => {
         })
 
     } catch (error) {
-        return res.status(400).json({
+        // 409 carries the server's current state so the client can reconcile.
+        return res.status(error.statusCode || 400).json({
             success: false,
-            message: error.message
+            message: error.message,
+            ...(error.conflict ? { conflict: error.conflict } : {})
         })
     }
 }

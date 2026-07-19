@@ -3,8 +3,10 @@ import authRoutes from "./routes/auth.routes.js";
 import documentRoutes from "./routes/document.routes.js"
 import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { config } from "./config/env.js";
 import logger from "./config/logger.js";
+
 
 const app = express()
 
@@ -14,6 +16,7 @@ app.use(cors({
 }))
 
 app.use(express.json({limit: "1mb"}))
+app.use(cookieParser())
 app.use(helmet())
 
 app.use('/auth', authRoutes)

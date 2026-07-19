@@ -46,7 +46,11 @@ export async function registerDocumentHandler(io, socket) {
 
 
 
-    socket.on("DOCUMENT_UPDATE", async ({ documentId, content }) => {
+    // TODO: Migrate to a CRDT model (Yjs) for conflict-free real-time merging.
+    // The optimistic version guard below prevents silent data loss, but because
+    // `content` is a whole-document overwrite, any concurrent edit becomes a
+    // conflict the client must resolve. Yjs would let edits merge automatically.
+    socket.on("DOCUMENT_UPDATE", async ({ documentId, content, baseVersion }) => {
 
         try {
             const document = await Document.findById(documentId)
@@ -57,19 +61,35 @@ export async function registerDocumentHandler(io, socket) {
 
             await canEditDocument(socket.user.id, document)
 
-            document.content = content
-            document.version += 1
+            // Atomic guarded write: the update only lands if the document is still
+            // at the version the client edited on top of. Matching the version and
+            // incrementing it is a single operation, so two updates on the same
+            // base version cannot both succeed.
+            const updated = await Document.findOneAndUpdate(
+                { _id: documentId, version: baseVersion },
+                { content, $inc: { version: 1 } },
+                { new: true }
+            )
 
-            await document.save()
-            
-            socket.broadcast.to(documentId).emit("DOCUMENT_UPDATED", 
+            if (!updated) {
+                // The guarded write didn't match. We already confirmed the document
+                // exists above, so this is a version conflict — someone else wrote
+                // first. Send the server's current state so the client can merge or
+                // refetch, then resend with the new baseVersion.
+                return socket.emit("VERSION_CONFLICT", {
+                    currentVersion: document.version,
+                    content: document.content
+                })
+            }
+
+            socket.broadcast.to(documentId).emit("DOCUMENT_UPDATED",
                 {
-                    content: document.content, 
-                    version: document.version
+                    content: updated.content,
+                    version: updated.version
                 }
             )
 
-            socket.emit("VERSION_ACK", { version: document.version })
+            socket.emit("VERSION_ACK", { version: updated.version })
         } catch(err){
             return socket.emit("ERROR", { message: err.message })
         }

@@ -31,9 +31,9 @@ const DocumentSchema = new Schema(
         }], 
         
         version: {
-            type: Number, 
-            required: true, 
-            trim: true, 
+            type: Number,
+            required: true,
+            default: 0,
         }
     }, 
     {

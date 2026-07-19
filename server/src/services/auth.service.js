@@ -41,14 +41,31 @@ export async function loginUser({ email, password }){
         throw new Error("Invalid Credentials")
     }
 
-    const token = jwt.sign({ userId: user._id, name: user.name }, config.jwtsecret)
+    const payload = { userId: user._id, name: user.name }
+
+    const token = jwt.sign(payload, config.jwtsecret, {expiresIn: '7d'})
 
     return {
         user: {
-            id: user._id, 
-            name: user.name, 
+            id: user._id,
+            name: user.name,
             email: user.email
-        }, 
+        },
         token
+    }
+}
+
+
+
+export async function getUserById(userId){
+    const user = await User.findById(userId)
+    if(!user){
+        return null
+    }
+
+    return {
+        id: user._id,
+        name: user.name,
+        email: user.email
     }
 }
