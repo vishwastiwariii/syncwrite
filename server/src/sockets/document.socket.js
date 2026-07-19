@@ -1,5 +1,5 @@
 import Document from "../models/Document.js"
-import { canViewDocument, canEditDocument } from "../services/permission.service.js"
+import { canViewDocument, getRole } from "../services/permission.service.js"
 import handleCursorMove from "./cursor.manager.js"
 import { addUsers, getUsers, refreshPresence, removeUserFromAllDocuments } from "./presence.manager.js"
 import logger from "../config/logger.js"
@@ -9,6 +9,8 @@ import {
     joinDocumentLimiter,
     checkSocketLimit
 } from "../config/rateLimiter.js"
+import { invalidateDocument } from "../services/documentCache.js"
+import { cacheRole, clearRole, resolveRole } from "./permission.cache.js"
 
 export async function registerDocumentHandler(io, socket) {
     
@@ -23,6 +25,12 @@ export async function registerDocumentHandler(io, socket) {
             }
 
             await canViewDocument(socket.user.id, document)
+
+            // Cache the role for this document now, so subsequent edits don't
+            // hit the DB for a permission check on every keystroke. The entry is
+            // dropped on LEAVE_DOCUMENT and invalidated when permissions change.
+            cacheRole(socket, documentId, getRole(socket.user.id, document))
+
             await socket.join(documentId)
             await addUsers(documentId, socket)
 
@@ -38,6 +46,7 @@ export async function registerDocumentHandler(io, socket) {
     socket.on("LEAVE_DOCUMENT", async ({documentId}) => {
         try {
             await socket.leave(documentId)
+            clearRole(socket, documentId)
             const affectedDocs = await removeUserFromAllDocuments(socket.id)
             
             if (affectedDocs.includes(documentId)) {
@@ -63,13 +72,12 @@ export async function registerDocumentHandler(io, socket) {
         try {
             if (!await checkSocketLimit(docUpdateLimiter, socket, "DOCUMENT_UPDATE")) return
 
-            const document = await Document.findById(documentId)
+            // Permission check off the cached role — no DB read on the hot path.
+            const role = await resolveRole(socket, documentId)
 
-            if(!document){
-                return socket.emit("ERROR", { message: "Invalid Document Id" })
+            if (!role || role === "VIEWER") {
+                return socket.emit("ERROR", { message: "You don't have editor access" })
             }
-
-            await canEditDocument(socket.user.id, document)
 
             // Atomic guarded write: the update only lands if the document is still
             // at the version the client edited on top of. Matching the version and
@@ -82,15 +90,26 @@ export async function registerDocumentHandler(io, socket) {
             )
 
             if (!updated) {
-                // The guarded write didn't match. We already confirmed the document
-                // exists above, so this is a version conflict — someone else wrote
-                // first. Send the server's current state so the client can merge or
-                // refetch, then resend with the new baseVersion.
+                // The guarded write didn't match: either the document was deleted
+                // or someone else wrote first. Fetch the current state to tell the
+                // two apart — this is the only path that still reads the document.
+                const current = await Document.findById(documentId)
+
+                if (!current) {
+                    return socket.emit("ERROR", { message: "Invalid Document Id" })
+                }
+
+                // Version conflict — send the server's current state so the client
+                // can merge or refetch, then resend with the new baseVersion.
                 return socket.emit("VERSION_CONFLICT", {
-                    currentVersion: document.version,
-                    content: document.content
+                    currentVersion: current.version,
+                    content: current.content
                 })
             }
+
+            // The content changed — drop the stale cache so the next reader
+            // repopulates from Mongo.
+            await invalidateDocument(documentId)
 
             socket.broadcast.to(documentId).emit("DOCUMENT_UPDATED",
                 {

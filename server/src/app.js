@@ -11,8 +11,8 @@ import { rateLimit } from "express-rate-limit"
 
 const app = express()
 
-const limiter = new rateLimit({
-  windowMs: 1000 * 60, 
+const limiter = rateLimit({
+  windowMs: 1000 * 60,
   limit: 100
 })
 
@@ -24,7 +24,7 @@ app.use(cors({
 app.use(express.json({limit: "1mb"}))
 app.use(cookieParser())
 app.use(helmet())
-app.use(limiter())
+app.use(limiter)
 
 app.use('/auth', authRoutes)
 app.use('/documents', documentRoutes)

@@ -1,6 +1,9 @@
 import Document from "../models/Document.js";
 import User from "../models/User.js";
+import { cacheDocument, getCachedDocument, invalidateDocument } from "./documentCache.js";
 import { canEditDocument, canShareDocument } from "./permission.service.js";
+import { getIo } from "../config/socket.js";
+import { invalidatePermission } from "../sockets/permission.cache.js";
 
 export async function createDocument({ userId, title, content }) {
 
@@ -37,6 +40,7 @@ export async function updateDocument({ documentId, title, content, baseVersion, 
     if (content === undefined) {
         if (title !== undefined) document.title = title;
         await document.save();
+        await invalidateDocument(documentId)
         return document;
     }
 
@@ -69,6 +73,8 @@ export async function updateDocument({ documentId, title, content, baseVersion, 
         };
         throw err;
     }
+
+    await invalidateDocument(documentId)
 
     return updated;
 }
@@ -103,6 +109,11 @@ export async function shareDocument({ documentId, userId, email, role }) {
     })
 
     await document.save()
+    await invalidateDocument(documentId)
+
+    // Drop the shared user's cached role (across all instances) so their next
+    // edit reflects the access they were just granted or had changed.
+    invalidatePermission(getIo(), { documentId, userId: user._id.toString() })
 
     return document
 }
@@ -122,12 +133,23 @@ export async function getUserDocuments({ userId }) {
 
 
 export async function getDocumentsById({ documentId, userId }) {
-    const document = await Document.findById(documentId);
+    // Try the cache first, fall back to Mongo and populate on miss.
+    let document = await getCachedDocument(documentId)
 
     if (!document) {
-        throw new Error("Invalid Document Id")
+        document = await Document.findById(documentId);
+
+        if (!document) {
+            throw new Error("Invalid Document Id")
+        }
+
+        await cacheDocument(document)
     }
 
+    // Authorization runs on every path — cache hit OR miss. Never return a
+    // cached document without checking access, or any authenticated user could
+    // read a document another user warmed into the cache. Cached JSON stores
+    // ids as strings, so .toString() is a safe no-op on both shapes.
     const isOwner = document.createdBy.toString() === userId.toString()
 
     const collaborators = document.collaborators.some(
@@ -157,6 +179,7 @@ export async function deleteDocument({ documentId, userId }) {
     }
 
     await document.deleteOne()
+    await invalidateDocument(documentId)
 
     return {
         message: "Document deleted successfully"
