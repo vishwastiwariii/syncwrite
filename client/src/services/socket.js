@@ -6,11 +6,11 @@ let socket = null
 
 
 export const createSocket = () => {
-  if(socket) return socket; 
-  const token = localStorage.getItem("token");
+  if(socket) return socket;
 
+  // withCredentials makes the browser send the httpOnly auth cookie on the handshake.
   socket = io(SOCKET_URL, {
-    auth: { token },
+    withCredentials: true,
   });
 
   return socket;

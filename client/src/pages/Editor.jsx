@@ -150,14 +150,22 @@ export default function Editor() {
   const [showPresencePanel, setShowPresencePanel] = useState(false);
   const presencePanelRef = useRef(null);
 
+  /* ── Conflict banner ── */
+  const [conflict, setConflict] = useState(false);
+
   /* ── Refs for avoiding infinite loops ── */
   const isRemoteUpdate = useRef(false);
-  
+
+  /* ── Version the client is currently editing on top of (baseVersion). ──
+     Updated from the server on ACK, remote broadcasts, and conflicts so every
+     outgoing edit is guarded against the version we actually last saw. */
+  const versionRef = useRef(0);
+
   /* ── Socket & Debounce hooks ── */
   const { emit, on } = useSocket(documentId);
 
   const debouncedUpdate = useDebounceCallback((newContent) => {
-    emit("DOCUMENT_UPDATE", { documentId, content: newContent });
+    emit("DOCUMENT_UPDATE", { documentId, content: newContent, baseVersion: versionRef.current });
     setSaving(false);
   }, 400);
 
@@ -179,6 +187,7 @@ export default function Editor() {
       setDoc(d);
       setTitle(d.title || "Untitled Document");
       setContent(d.content || "");
+      versionRef.current = d.version ?? 0;
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Failed to load document");
     } finally {
@@ -195,9 +204,25 @@ export default function Editor() {
     if (!documentId) return;
 
     const cleanupHandlers = [
-      on("DOCUMENT_UPDATED", ({ content: newContent }) => {
+      on("DOCUMENT_UPDATED", ({ content: newContent, version }) => {
         isRemoteUpdate.current = true;
         setContent(newContent);
+        if (typeof version === "number") versionRef.current = version;
+      }),
+      // Our own write landed — advance to the version the server assigned.
+      on("VERSION_ACK", ({ version }) => {
+        if (typeof version === "number") versionRef.current = version;
+      }),
+      // Someone else wrote on top of our base version. Adopt the server's
+      // state so we don't silently clobber their edit, and re-guard on the
+      // new version. (Whole-document merge isn't possible here — that's the
+      // Yjs migration. Until then the loser's un-acked keystrokes are lost,
+      // but no committed data is.)
+      on("VERSION_CONFLICT", ({ currentVersion, content: serverContent }) => {
+        isRemoteUpdate.current = true;
+        if (typeof serverContent === "string") setContent(serverContent);
+        if (typeof currentVersion === "number") versionRef.current = currentVersion;
+        setConflict(true);
       }),
       on("PRESENCE_UPDATE", ({ users }) => {
         setActiveUsers(users || []);
@@ -594,6 +619,24 @@ export default function Editor() {
             <EditorError message={error} onRetry={fetchDocument} />
           ) : (
             <>
+              {/* Conflict banner — remote changes were loaded over local edits */}
+              {conflict && (
+                <div className="mx-6 mt-6 flex items-center gap-3 rounded-[12px] border border-[#f5c451] bg-[#fdf6e3] px-4 py-3 ed-fade-up">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b8860b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  <span className="flex-1 text-[12px] font-medium text-[#7a5c00]">
+                    This document was updated by someone else. The latest version has been loaded — re-apply your changes if needed.
+                  </span>
+                  <button
+                    onClick={() => setConflict(false)}
+                    className="text-[11px] font-semibold text-[#b8860b] uppercase tracking-[0.04em] cursor-pointer bg-transparent border-none hover:text-[#7a5c00]"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
               {/* Document surface */}
               <div className="flex-1 bg-white mx-6 my-6 rounded-[16px] border border-[rgba(0,0,0,0.06)] shadow-[0_2px_20px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col ed-fade-up">
                 {/* Editor area */}
