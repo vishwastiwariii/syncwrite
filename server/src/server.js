@@ -10,7 +10,7 @@ const PORT = config.port || 5000
 
 async function startServer(){
     try{
-        
+
         await connectDB()
         await connectRedis()
 
