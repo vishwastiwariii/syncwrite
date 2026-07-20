@@ -1,1 +1,62 @@
 @import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────
+   SyncWrite — Design System tokens (from SyncWrite.pdf)
+   Modern collaborative editor · violet accent on soft lavender.
+   Consumed via arbitrary Tailwind values, e.g. bg-[var(--sw-bg)].
+   ───────────────────────────────────────────────────────────── */
+@theme {
+  --color-sw-bg: #f5f4f8;        /* --paper   page background */
+  --color-sw-surface: #ffffff;   /* cards, pills, panels */
+  --color-sw-ink: #17161c;       /* --ink     primary text / dark buttons */
+  --color-sw-muted: #6c6a78;     /* --muted   secondary text */
+  --color-sw-faint: #9b99a6;     /* --faint   captions, meta */
+  --color-sw-line: #eceaf3;      /* --line    hairline borders */
+  --color-sw-line-2: #f3f1f8;    /* --line-2  softer dividers */
+  --color-sw-violet: #6c5ce7;    /* --acc     primary accent */
+  --color-sw-violet-strong: #5546c9; /* accent hover */
+  --color-sw-violet-soft: #edebff;   /* --acc-tint  icon fills, chips */
+  --color-sw-violet-2: #f4f2ff;      /* --acc-2     panel washes */
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, serif;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ─── Motion utilities (design-system) ─────────────────────────────────── */
+@keyframes sw-orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes sw-orbit-rev {
+  to { transform: rotate(-360deg); }
+}
+@keyframes sw-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+@keyframes sw-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sw-anim { opacity: 0; animation: sw-fade-up 0.6s cubic-bezier(0.22, 0.8, 0.44, 1) forwards; }
+.sw-d1 { animation-delay: 0.05s; }
+.sw-d2 { animation-delay: 0.14s; }
+.sw-d3 { animation-delay: 0.23s; }
+.sw-d4 { animation-delay: 0.32s; }
+.sw-d5 { animation-delay: 0.42s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-anim { opacity: 1; animation: none; }
+  [class*="sw-orbit"], [style*="sw-orbit"] { animation: none !important; }
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-sw-bg);
+  color: var(--color-sw-ink);
+}

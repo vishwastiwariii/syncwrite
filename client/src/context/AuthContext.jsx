@@ -4,6 +4,7 @@ import { AuthContext } from "./authContext";
 
 
 export const AuthProvider = ( { children }) => {
+    const [user, setUser] = useState(null)         // { id, name, email }
     const [userId, setUserId] = useState(null)
     const [loading, setLoading] = useState(true)   // true until we've asked the server who we are
 
@@ -14,6 +15,7 @@ export const AuthProvider = ( { children }) => {
             try {
                 const res = await getRequest('auth/me')
                 if (res.success) {
+                    setUser(res.data.user)
                     setUserId(res.data.user.id)
                 }
             } catch {
@@ -38,7 +40,8 @@ export const AuthProvider = ( { children }) => {
             }
 
             // The token now lives in an httpOnly cookie set by the server.
-            // We only keep the user's id, which the server sends in the body.
+            // We keep the user profile the server sends in the body (id/name/email).
+            setUser(res.data.user)
             setUserId(res.data.user.id)
 
             return {
@@ -80,6 +83,7 @@ export const AuthProvider = ( { children }) => {
         } catch {
             // Even if the request fails, drop the local state.
         }
+        setUser(null)
         setUserId(null)
     }
 
@@ -87,6 +91,7 @@ export const AuthProvider = ( { children }) => {
         <AuthContext.Provider
         value={
         {
+            user,
             userId,
             isAuthenticated: !!userId,
             loading,
