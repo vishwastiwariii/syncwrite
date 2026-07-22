@@ -5,10 +5,10 @@ export const createDocumentSchema = z.object({
     content: z.string().optional()
 })
 
+// Body content is no longer written over REST — it is a Yjs shared type synced
+// over the socket. The REST update path handles document metadata only.
 export const updateDocumentSchema = z.object({
-    title: z.string().trim().optional(),
-    content: z.string().optional(),
-    baseVersion: z.number().int().nonnegative().optional()
+    title: z.string().trim().min(1)
 })
 
 export const shareDocumentSchema = z.object({

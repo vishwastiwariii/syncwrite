@@ -6,32 +6,33 @@ import logger from "./logger.js"
 // tells rate-limiter-flexible to talk to node-redis rather than ioredis.
 // Each limiter gets a distinct keyPrefix so their counters never collide.
 
-// DOCUMENT_UPDATE is the most expensive event: two Mongo round-trips per call.
-// Keep it tight.
-export const docUpdateLimiter = new RateLimiterRedis({
-    storeClient: pubClient,
-    useRedisPackage: true,
-    keyPrefix: "rl_doc_update",
-    points: 30,      // 30 updates
-    duration: 10     // per 10 seconds, per user
-})
-
-// CURSOR_MOVE is the highest-frequency event. Allow a generous burst but still
-// cap it so one client can't flood every peer in the room.
-export const cursorMoveLimiter = new RateLimiterRedis({
-    storeClient: pubClient,
-    useRedisPackage: true,
-    keyPrefix: "rl_cursor_move",
-    points: 100,     // 100 moves
-    duration: 10     // per 10 seconds, per user
-})
-
-// JOIN_DOCUMENT hits Mongo + permission checks. Limit room-join churn.
+// JOIN_DOCUMENT / Y_JOIN hits Mongo + permission checks. Limit room-join churn.
 export const joinDocumentLimiter = new RateLimiterRedis({
     storeClient: pubClient,
     useRedisPackage: true,
     keyPrefix: "rl_join_doc",
     points: 20,      // 20 joins
+    duration: 10     // per 10 seconds, per user
+})
+
+// Y_UPDATE carries a tiny binary CRDT delta and no DB write on the hot path, so
+// it's far cheaper than the old DOCUMENT_UPDATE. Allow a high burst (fast typing
+// emits one update per keystroke) but still cap it so a runaway client can't
+// flood the room.
+export const ydocUpdateLimiter = new RateLimiterRedis({
+    storeClient: pubClient,
+    useRedisPackage: true,
+    keyPrefix: "rl_ydoc_update",
+    points: 300,     // 300 updates
+    duration: 10     // per 10 seconds, per user
+})
+
+// Y_AWARENESS carries cursor/selection changes — high frequency, no persistence.
+export const ydocAwarenessLimiter = new RateLimiterRedis({
+    storeClient: pubClient,
+    useRedisPackage: true,
+    keyPrefix: "rl_ydoc_awareness",
+    points: 200,     // 200 awareness updates
     duration: 10     // per 10 seconds, per user
 })
 

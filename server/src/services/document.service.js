@@ -1,17 +1,30 @@
+import * as Y from "yjs";
 import Document from "../models/Document.js";
 import User from "../models/User.js";
 import { cacheDocument, getCachedDocument, invalidateDocument } from "./documentCache.js";
 import { canEditDocument, canShareDocument } from "./permission.service.js";
 import { getIo } from "../config/socket.js";
 import { invalidatePermission } from "../sockets/permission.cache.js";
+import { CONTENT_TEXT_NAME } from "../sockets/ydoc.manager.js";
+
+// Encode a plaintext body into the Yjs state a document opens with. Seeding
+// `state` at creation means the first editor loads the intended content through
+// the sync handshake instead of starting from an empty replica.
+function encodeInitialState(content) {
+    const doc = new Y.Doc();
+    if (content) {
+        doc.getText(CONTENT_TEXT_NAME).insert(0, content);
+    }
+    return Buffer.from(Y.encodeStateAsUpdate(doc));
+}
 
 export async function createDocument({ userId, title, content }) {
 
     const document = await Document.create({
         title,
         content,
-        createdBy: userId,
-        version: 1
+        state: encodeInitialState(content),
+        createdBy: userId
     })
 
     return {
@@ -25,7 +38,9 @@ export async function createDocument({ userId, title, content }) {
 }
 
 
-export async function updateDocument({ documentId, title, content, baseVersion, userId }) {
+// Metadata-only update. The document body is a Yjs shared type synced over the
+// socket and merged server-side — it is never written through this REST path.
+export async function updateDocument({ documentId, title, userId }) {
     const document = await Document.findById(documentId);
 
     if (!document) {
@@ -34,49 +49,11 @@ export async function updateDocument({ documentId, title, content, baseVersion, 
 
     await canEditDocument(userId, document)
 
-    // Title-only updates are metadata and don't participate in version guarding,
-    // so they must NOT bump the content version (that would desync the socket
-    // editing path and cause spurious conflicts).
-    if (content === undefined) {
-        if (title !== undefined) document.title = title;
-        await document.save();
-        await invalidateDocument(documentId)
-        return document;
-    }
-
-    // Content update: guard against a stale base version.
-    if (baseVersion === undefined) {
-        const err = new Error("baseVersion is required to update content")
-        err.statusCode = 400;
-        throw err;
-    }
-
-    const set = { content };
-    if (title !== undefined) set.title = title;
-
-    // Atomic guarded write: only lands if the document is still at baseVersion.
-    const updated = await Document.findOneAndUpdate(
-        { _id: documentId, version: baseVersion },
-        { $set: set, $inc: { version: 1 } },
-        { new: true }
-    );
-
-    if (!updated) {
-        // Document exists (checked above) but the version moved — conflict.
-        // Attach the server's current state so the caller can merge or refetch.
-        const current = await Document.findById(documentId);
-        const err = new Error("Version conflict: document was updated by someone else")
-        err.statusCode = 409;
-        err.conflict = {
-            currentVersion: current?.version,
-            content: current?.content
-        };
-        throw err;
-    }
-
+    document.title = title;
+    await document.save();
     await invalidateDocument(documentId)
 
-    return updated;
+    return document;
 }
 
 

@@ -12,6 +12,10 @@ const DocumentSchema = new Schema(
             type: String, 
         }, 
 
+        state: {
+            type: Buffer,
+        },
+
         createdBy: {
             type: Schema.Types.ObjectId, 
             ref: "User", 

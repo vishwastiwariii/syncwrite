@@ -4,7 +4,9 @@
   "description": "",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test --experimental-test-module-mocks --test-force-exit test/*.test.js",
+    "migrate:content-to-yjs": "node scripts/migrateContentToYjs.js"
   },
   "engines": {
     "node": ">=18"
@@ -28,6 +30,7 @@
     "redis": "^5.11.0",
     "socket.io": "^4.8.3",
     "winston": "^3.19.0",
+    "y-protocols": "^1.0.7",
     "yjs": "^13.6.31",
     "zod": "^4.3.6"
   },
