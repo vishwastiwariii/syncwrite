@@ -118,8 +118,8 @@ export default function Features() {
   const p = PANELS[tab];
 
   return (
-    <section id="features" className="px-5 py-8 sm:px-8">
-      <div className="mx-auto max-w-[1240px] rounded-[28px] border border-sw-line bg-sw-surface px-6 py-[60px] shadow-[0_40px_90px_-60px_rgba(20,18,30,0.5)] sm:px-[clamp(24px,5vw,64px)]">
+    <section id="features" className="px-6 py-24">
+      <div className="mx-auto max-w-[1120px]">
         {/* Header */}
         <div className="mx-auto mb-11 max-w-[640px] text-center">
           <span className="text-[14px] font-semibold tracking-[0.02em] text-sw-violet">
@@ -202,7 +202,7 @@ export default function Features() {
         {/* Feature grid */}
         <div className="mt-[22px] grid gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-[20px] border border-sw-line p-[26px]">
+            <div key={f.title} className="rounded-[20px] border border-sw-line bg-sw-surface p-[26px]">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <span
                   className="grid h-[42px] w-[42px] place-items-center rounded-xl"

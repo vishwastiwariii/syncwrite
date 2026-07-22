@@ -28,15 +28,6 @@ const Chevron = () => (
 const DEFAULT_ITEMS = [
   { label: "Features", href: "#features" },
   { label: "Templates", href: "#templates" },
-  { label: "Pricing", href: "#pricing" },
-  {
-    label: "Resources",
-    menu: [
-      { label: "Documentation", href: "#docs" },
-      { label: "Changelog", href: "#changelog" },
-      { label: "Community", href: "#community" },
-    ],
-  },
 ];
 
 function NavLink({ item }) {
