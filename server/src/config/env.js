@@ -17,5 +17,7 @@ export const config = {
     jwtsecret: process.env.JWT_SECRET, 
     redisurl: process.env.REDIS_URL,
     clientUrl: process.env.CLIENT_URL,
-    nodeEnv: process.env.NODE_ENV || 'development'
+    nodeEnv: process.env.NODE_ENV || 'development',
+    // Optional: enables Google sign-in. If unset, POST /auth/google returns 503.
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null
 }

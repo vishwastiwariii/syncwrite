@@ -8,6 +8,11 @@ export const registerSchema = z.object({
 
 
 export const loginSchema = z.object({
-    email: z.string().email().trim().toLowerCase(), 
+    email: z.string().email().trim().toLowerCase(),
     password: z.string()
+})
+
+
+export const googleSchema = z.object({
+    credential: z.string().min(1)
 })

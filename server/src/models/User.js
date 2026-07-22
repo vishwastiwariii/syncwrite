@@ -15,15 +15,23 @@ const UserSchema = new Schema(
             unique: true, 
         }, 
 
+        // Optional: Google-only accounts have no local password.
         passwordHash: {
-            type: String, 
-            required: true, 
-        }, 
+            type: String,
+        },
+
+        // Google's stable user id (the ID token's `sub`). Sparse+unique so
+        // password-only users (no googleId) don't collide on the unique index.
+        googleId: {
+            type: String,
+            unique: true,
+            sparse: true,
+        },
 
         imageUrl: {
-            type: String, 
+            type: String,
             default: ""
-        }, 
+        },
     } , 
     {
         timestamps: true

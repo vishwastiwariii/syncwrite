@@ -1,5 +1,5 @@
-import { registerUser, loginUser, getUserById } from "../services/auth.service.js";
-import { registerSchema, loginSchema } from "../validators/auth.validator.js";
+import { registerUser, loginUser, googleAuth, getUserById } from "../services/auth.service.js";
+import { registerSchema, loginSchema, googleSchema } from "../validators/auth.validator.js";
 import { cookieOptions, COOKIE_NAME, COOKIE_MAX_AGE } from "../config/cookie.js";
 
 export const register = async(req, res) =>{
@@ -55,6 +55,38 @@ export const login = async(req, res) => {
         success: false,
         message: error.message
       });
+    }
+}
+
+
+// Sign-in with a Google ID token. Verifies with Google, then issues the exact
+// same session cookie as password login so every downstream check is unchanged.
+export const googleLogin = async(req, res) => {
+    try{
+        const isValid = googleSchema.safeParse(req.body)
+        if(!isValid.success){
+            return res.status(400).json({
+                success: false,
+                message: "Missing Google credential"
+            })
+        }
+
+        const result = await googleAuth(isValid.data)
+
+        res.cookie(COOKIE_NAME, result.token, { ...cookieOptions, maxAge: COOKIE_MAX_AGE })
+
+        return res.status(200).json({
+            success: true,
+            message: "Login Completed",
+            data: { user: result.user }
+        })
+    } catch(error){
+        // googleAuth tags errors with statusCode (401 invalid token, 503 not
+        // configured); default to 400 for anything unexpected.
+        return res.status(error.statusCode || 400).json({
+            success: false,
+            message: error.message
+        })
     }
 }
 
