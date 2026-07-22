@@ -1,50 +1,43 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { documentService } from "../services/document.service";
-import { useSocket } from "../hooks/useSocket";
+import { useAuth } from "../hooks/useAuth";
+import { useCollaborativeDocument } from "../hooks/useCollaborativeDocument";
 import { useDebounceCallback } from "../hooks/useDebounce";
+import { bindTextareaToYText } from "../services/ydoc";
 import Sidebar from "../components/Sidebar";
 import ShareModal from "../components/ShareModal";
 import DocumentEditor from "../components/editor/DocumentEditor";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Editor page — owns data, sockets, and the optimistic version guard.
-   All presentation lives in <DocumentEditor />.
+   Editor page — owns metadata (title), sockets, and the CRDT binding.
+
+   The document body is a Yjs shared type: concurrent edits merge, so there is
+   no version guard, no conflict banner, and no debounced whole-document push.
+   The title is still plain metadata saved over REST.
    ═══════════════════════════════════════════════════════════════════════ */
 export default function Editor() {
   const { id: documentId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  /* ── Document state ── */
+  /* ── Document metadata (title/updatedAt come from REST; body from Yjs) ── */
   const [doc, setDoc] = useState(null);
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [activeNav, setActiveNav] = useState("All Documents");
   const [showShareModal, setShowShareModal] = useState(false);
 
-  /* ── Presence & conflict ── */
-  const [activeUsers, setActiveUsers] = useState([]);
-  const [conflict, setConflict] = useState(false);
+  /* ── Word-count mirror of the body. Not the textarea's value — the binding
+        owns that. This is display-only, updated when the shared text changes. ── */
+  const [bodyText, setBodyText] = useState("");
 
-  /* ── Refs for avoiding infinite loops ── */
-  const isRemoteUpdate = useRef(false);
   const textareaRef = useRef(null);
+  const bindingRef = useRef(null);
 
-  /* ── Version the client is currently editing on top of (baseVersion). ──
-     Updated from the server on ACK, remote broadcasts, and conflicts so every
-     outgoing edit is guarded against the version we actually last saw. */
-  const versionRef = useRef(0);
-
-  /* ── Socket & Debounce hooks ── */
-  const { emit, on } = useSocket(documentId);
-
-  const debouncedUpdate = useDebounceCallback((newContent) => {
-    emit("DOCUMENT_UPDATE", { documentId, content: newContent, baseVersion: versionRef.current });
-    setSaving(false);
-  }, 400);
+  /* ── Live collaboration: the shared body + deduped presence list. ── */
+  const { ytext, users, status } = useCollaborativeDocument(documentId, user);
 
   const debouncedTitleUpdate = useDebounceCallback(async (newTitle) => {
     try {
@@ -54,7 +47,8 @@ export default function Editor() {
     }
   }, 600);
 
-  /* ── Fetch initial document ── */
+  /* ── Fetch title/metadata and confirm access. The body is NOT taken from
+        here — it arrives via the Yjs sync handshake. ── */
   const fetchDocument = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -63,8 +57,6 @@ export default function Editor() {
       const d = res.data;
       setDoc(d);
       setTitle(d.title || "Untitled Document");
-      setContent(d.content || "");
-      versionRef.current = d.version ?? 0;
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Failed to load document");
     } finally {
@@ -76,59 +68,28 @@ export default function Editor() {
     fetchDocument();
   }, [fetchDocument]);
 
-  /* ── Socket handlers ── */
+  /* ── Bind the textarea to the shared type once both exist. The binding does
+        the two-way sync and caret preservation; we also mirror the text into
+        state for the word counter. ── */
   useEffect(() => {
-    if (!documentId) return;
+    const textarea = textareaRef.current;
+    if (!ytext || !textarea) return;
 
-    const cleanupHandlers = [
-      on("DOCUMENT_UPDATED", ({ content: newContent, version }) => {
-        isRemoteUpdate.current = true;
-        setContent(newContent);
-        if (typeof version === "number") versionRef.current = version;
-      }),
-      // Our own write landed — advance to the version the server assigned.
-      on("VERSION_ACK", ({ version }) => {
-        if (typeof version === "number") versionRef.current = version;
-      }),
-      // Someone else wrote on top of our base version. Adopt the server's
-      // state so we don't silently clobber their edit, and re-guard on the
-      // new version. (Whole-document merge isn't possible here — that's the
-      // Yjs migration. Until then the loser's un-acked keystrokes are lost,
-      // but no committed data is.)
-      on("VERSION_CONFLICT", ({ currentVersion, content: serverContent }) => {
-        isRemoteUpdate.current = true;
-        if (typeof serverContent === "string") setContent(serverContent);
-        if (typeof currentVersion === "number") versionRef.current = currentVersion;
-        setConflict(true);
-      }),
-      on("PRESENCE_UPDATE", ({ users }) => {
-        setActiveUsers(users || []);
-      }),
-      on("ERROR", ({ message }) => {
-        console.error("[Socket Error]", message);
-      }),
-    ];
+    const binding = bindTextareaToYText(textarea, ytext);
+    bindingRef.current = binding;
 
-    return () => cleanupHandlers.forEach((cleanup) => cleanup && cleanup());
-  }, [documentId, on]);
+    const syncBodyText = () => setBodyText(ytext.toString());
+    syncBodyText();
+    ytext.observe(syncBodyText);
 
-  /* ── Content change handler (local edits only) ── */
-  const handleContentChange = useCallback(
-    (e) => {
-      if (isRemoteUpdate.current) {
-        isRemoteUpdate.current = false;
-        return;
-      }
+    return () => {
+      ytext.unobserve(syncBodyText);
+      binding.destroy();
+      bindingRef.current = null;
+    };
+  }, [ytext, loading]);
 
-      const newContent = e.target.value;
-      setContent(newContent);
-      setSaving(true);
-      debouncedUpdate(newContent);
-    },
-    [debouncedUpdate]
-  );
-
-  /* ── Title change handler ── */
+  /* ── Title change (metadata, REST). ── */
   const handleTitleChange = useCallback(
     (e) => {
       const newTitle = e.target.value;
@@ -138,29 +99,10 @@ export default function Editor() {
     [debouncedTitleUpdate]
   );
 
-  /* ── Formatting toolbar actions ── */
-  const wrapSelection = useCallback(
-    (before, after) => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-      const start = ta.selectionStart;
-      const end = ta.selectionEnd;
-      const selected = ta.value.substring(start, end);
-      const replacement = before + selected + after;
-      const newContent = ta.value.substring(0, start) + replacement + ta.value.substring(end);
-
-      setContent(newContent);
-      setSaving(true);
-      debouncedUpdate(newContent);
-
-      requestAnimationFrame(() => {
-        ta.focus();
-        ta.selectionStart = start + before.length;
-        ta.selectionEnd = start + before.length + selected.length;
-      });
-    },
-    [debouncedUpdate]
-  );
+  /* ── Formatting toolbar — edits the shared type via the binding. ── */
+  const handleFormat = useCallback((before, after) => {
+    bindingRef.current?.wrapSelection(before, after);
+  }, []);
 
   return (
     <div className="min-h-screen bg-sw-bg text-sw-ink">
@@ -169,20 +111,20 @@ export default function Editor() {
       <div className="ml-[240px] flex min-h-screen">
         <DocumentEditor
           title={title}
-          content={content}
+          content={bodyText}
           updatedAt={doc?.updatedAt}
           loading={loading}
           error={error}
-          saving={saving}
-          conflict={conflict}
-          users={activeUsers}
+          saving={status !== "synced"}
+          conflict={false}
+          users={users}
           onTitleChange={handleTitleChange}
-          onContentChange={handleContentChange}
-          onFormat={wrapSelection}
+          onContentChange={undefined}
+          onFormat={handleFormat}
           onBack={() => navigate("/dashboard")}
           onShare={() => setShowShareModal(true)}
           onRetry={fetchDocument}
-          onDismissConflict={() => setConflict(false)}
+          onDismissConflict={() => {}}
           textareaRef={textareaRef}
         />
       </div>

@@ -2,7 +2,7 @@ import React from "react";
 import { colorFor, initialOf } from "../../utils/presence";
 
 /* Overlapping avatar stack for everyone currently in the document.
-   Fed by real PRESENCE_UPDATE socket events. */
+   Fed by Yjs awareness state (deduped by user id, one avatar per person). */
 export default function PresenceStack({ users = [], max = 3 }) {
   if (!users.length) return null;
 

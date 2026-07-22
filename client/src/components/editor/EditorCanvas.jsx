@@ -9,7 +9,6 @@ export default function EditorCanvas({
   updatedAt,
   users = [],
   onTitleChange,
-  onContentChange,
   textareaRef,
 }) {
   const words = wordCount(content);
@@ -47,11 +46,12 @@ export default function EditorCanvas({
 
       <div className="my-[26px] h-px bg-sw-line" />
 
-      {/* Body */}
+      {/* Body — uncontrolled: the Yjs binding owns the DOM value and caret so
+          concurrent remote edits merge without React resetting the field. The
+          `content` prop above is used only for the word count. */}
       <textarea
         ref={textareaRef}
-        value={content}
-        onChange={onContentChange}
+        defaultValue=""
         placeholder="Start writing…"
         aria-label="Document content"
         className="min-h-[calc(100vh-360px)] w-full resize-none border-none bg-transparent text-[16.5px] leading-[1.75] text-[#33323B] outline-none placeholder:text-sw-faint"
