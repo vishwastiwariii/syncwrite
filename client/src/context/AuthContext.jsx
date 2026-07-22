@@ -76,6 +76,31 @@ export const AuthProvider = ( { children }) => {
         }
     }
 
+    const googleLogin = async (credential) => {
+        try {
+            const res = await postRequest('auth/google', { credential })
+
+            if (!res.success) {
+                return {
+                    success: false,
+                    message: res.message || "Google sign-in failed"
+                }
+            }
+
+            // Same cookie + user shape as password login — just a different
+            // way of proving identity.
+            setUser(res.data.user)
+            setUserId(res.data.user.id)
+
+            return { success: true }
+        } catch (error) {
+            return {
+                success: false,
+                message: error?.response?.data?.message || error?.message || "Google sign-in failed"
+            }
+        }
+    }
+
     const logout = async () => {
         // The cookie is httpOnly, so JS can't delete it -> ask the server to clear it.
         try {
@@ -97,6 +122,7 @@ export const AuthProvider = ( { children }) => {
             loading,
             login,
             register,
+            googleLogin,
             logout
         }
         }>

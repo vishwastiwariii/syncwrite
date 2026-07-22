@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 /* ─── Brand mark ──────────────────────────────────────────────────────────
    Small violet rounded-square logo with a stylized "sync" glyph.            */
@@ -89,6 +90,7 @@ function NavLink({ item }) {
    Sticky pill container. Fully mountable: <Navbar /> works with no props.   */
 export default function Navbar({ items = DEFAULT_ITEMS }) {
   const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -112,20 +114,33 @@ export default function Navbar({ items = DEFAULT_ITEMS }) {
           ))}
         </div>
 
-        {/* Actions (desktop) */}
+        {/* Actions (desktop) — Dashboard when signed in, otherwise Login/Signup.
+           While auth is still resolving, render nothing to avoid a flash of the
+           wrong buttons. */}
         <div className="hidden items-center gap-1.5 md:flex">
-          <button
-            onClick={() => navigate("/login")}
-            className="rounded-full px-4 py-2 text-[14px] font-medium text-sw-ink transition-colors duration-150 hover:bg-sw-violet-soft"
-          >
-            Login
-          </button>
-          <button
-            onClick={() => navigate("/login?mode=signup")}
-            className="rounded-full bg-sw-ink px-5 py-2.5 text-[14px] font-medium text-white transition-all duration-150 hover:-translate-y-px hover:bg-black hover:shadow-[0_8px_22px_rgba(23,22,29,0.28)]"
-          >
-            Start writing
-          </button>
+          {loading ? null : isAuthenticated ? (
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="rounded-full bg-sw-ink px-5 py-2.5 text-[14px] font-medium text-white transition-all duration-150 hover:-translate-y-px hover:bg-black hover:shadow-[0_8px_22px_rgba(23,22,29,0.28)]"
+            >
+              Dashboard
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="rounded-full px-4 py-2 text-[14px] font-medium text-sw-ink transition-colors duration-150 hover:bg-sw-violet-soft"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => navigate("/login?mode=signup")}
+                className="rounded-full bg-sw-ink px-5 py-2.5 text-[14px] font-medium text-white transition-all duration-150 hover:-translate-y-px hover:bg-black hover:shadow-[0_8px_22px_rgba(23,22,29,0.28)]"
+              >
+                Start writing
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -154,18 +169,29 @@ export default function Navbar({ items = DEFAULT_ITEMS }) {
             </a>
           ))}
           <div className="mt-2 flex flex-col gap-2 border-t border-sw-line pt-3">
-            <button
-              onClick={() => navigate("/login")}
-              className="rounded-full px-4 py-3 text-[15px] font-medium text-sw-ink transition-colors hover:bg-sw-violet-soft"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => navigate("/login")}
-              className="rounded-full bg-sw-ink px-4 py-3 text-[15px] font-medium text-white transition-colors hover:bg-black"
-            >
-              Start writing
-            </button>
+            {loading ? null : isAuthenticated ? (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="rounded-full bg-sw-ink px-4 py-3 text-[15px] font-medium text-white transition-colors hover:bg-black"
+              >
+                Dashboard
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate("/login")}
+                  className="rounded-full px-4 py-3 text-[15px] font-medium text-sw-ink transition-colors hover:bg-sw-violet-soft"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => navigate("/login?mode=signup")}
+                  className="rounded-full bg-sw-ink px-4 py-3 text-[15px] font-medium text-white transition-colors hover:bg-black"
+                >
+                  Start writing
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useGoogleSignIn } from "../hooks/useGoogleSignIn";
 
 /* ─── Icons ───────────────────────────────────────────────────────────────── */
 const EyeIcon = ({ open }) => (
@@ -81,17 +82,47 @@ function PasswordField({ value, onChange, disabled, placeholder = "Password", au
   );
 }
 
-/* Google OAuth is not wired to the backend yet — shown but disabled. */
-function GoogleButton({ label }) {
+/* Renders Google's official Identity Services button — the robust, compliant
+   path (it owns its own click/popup, branding, and a11y). `text` is the GSI
+   button label variant ("signup_with" | "continue_with" | "signin_with").
+   When VITE_GOOGLE_CLIENT_ID is unset we fall back to a disabled custom button
+   so the layout doesn't jump. */
+function GoogleButton({ label, text, onCredential, onError }) {
+  const { configured, ready, error, renderButton } = useGoogleSignIn(onCredential);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (ready && containerRef.current) {
+      renderButton(containerRef.current, {
+        text,
+        width: containerRef.current.offsetWidth || 360,
+      });
+    }
+  }, [ready, text, renderButton]);
+
+  useEffect(() => {
+    if (error) onError?.(error);
+  }, [error, onError]);
+
+  if (!configured) {
+    return (
+      <button
+        type="button"
+        title="Google sign-in is not configured"
+        className="flex w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-xl border border-sw-line py-3 text-[14px] font-semibold text-sw-muted opacity-70"
+      >
+        <GoogleIcon /> {label}
+      </button>
+    );
+  }
+
+  // GSI paints its own button here; min-height reserves space until it loads.
   return (
-    <button
-      type="button"
-      disabled
-      title="Google sign-in coming soon"
-      className="flex w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-xl border border-sw-line py-3 text-[14px] font-semibold text-sw-muted opacity-70"
-    >
-      <GoogleIcon /> {label}
-    </button>
+    <div
+      ref={containerRef}
+      className="flex min-h-[44px] w-full justify-center [color-scheme:light]"
+      aria-label={label}
+    />
   );
 }
 
@@ -156,7 +187,7 @@ function LoginVisual() {
 const EMPTY = { name: "", email: "", password: "", confirm: "" };
 
 export default function AuthPage() {
-  const { login, register } = useAuth();
+  const { login, register, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
@@ -201,6 +232,23 @@ export default function AuthPage() {
     }
   };
 
+  // One handler for both "Sign up" and "Continue" — the backend decides whether
+  // this is a new account or a returning user.
+  const handleGoogleCredential = async (credential) => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await googleLogin(credential);
+      if (res.success) navigate("/dashboard");
+      else setError(res.message || "Google sign-in failed");
+    } catch (err) {
+      console.error(err);
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* ── Form side — fills its half, content capped for readability ── */
   const formPanel = (
     <div className="flex items-center justify-center bg-sw-surface px-6 py-12 sm:px-10">
@@ -220,7 +268,12 @@ export default function AuthPage() {
 
         {isSignup && (
           <>
-            <GoogleButton label="Sign up with Google" />
+            <GoogleButton
+              label="Sign up with Google"
+              text="signup_with"
+              onCredential={handleGoogleCredential}
+              onError={setError}
+            />
             <div className="my-4">
               <Divider />
             </div>
@@ -319,7 +372,12 @@ export default function AuthPage() {
             <div className="my-4">
               <Divider />
             </div>
-            <GoogleButton label="Continue with Google" />
+            <GoogleButton
+              label="Continue with Google"
+              text="continue_with"
+              onCredential={handleGoogleCredential}
+              onError={setError}
+            />
           </>
         )}
 
