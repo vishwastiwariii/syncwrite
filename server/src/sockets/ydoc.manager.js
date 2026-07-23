@@ -3,15 +3,13 @@ import { Awareness, encodeAwarenessUpdate, removeAwarenessStates } from "y-proto
 import Document from "../models/Document.js"
 import logger from "../config/logger.js"
 import { invalidateDocument } from "../services/documentCache.js"
+import { docToPlainText, CONTENT_FRAGMENT_NAME, toUint8Array } from "../services/ydocContent.js"
 
-/**
- * The name of the Y.Text shared type holding the document body.
- *
- * This is a system-wide contract: the backfill script, this manager, and the
- * browser must all call getText() with this exact name, or they operate on
- * different shared types that never converge.
- */
-export const CONTENT_TEXT_NAME = "content"
+// The body
+// is a Y.XmlFragment (the ProseMirror tree that Tiptap edits), not a Y.Text —
+// see services/ydocContent.js, which also owns the binary normalization every
+// layer needs.
+export { CONTENT_FRAGMENT_NAME, toUint8Array }
 
 /**
  * Origin tag for updates that arrived from a client. Lets the persistence
@@ -30,33 +28,6 @@ export const REMOTE_ORIGIN = "remote"
  * }
  */
 const rooms = new Map()
-
-/**
- * Normalize a Mongo Buffer or a browser-relayed ArrayBuffer into a standalone
- * Uint8Array. Buffers from the driver can be slices of a shared pool carrying
- * a non-zero byteOffset; constructing a fresh view copies the bytes and
- * respects the offset, so Yjs never reads neighbouring memory.
- *
- * @param {Uint8Array|Buffer|ArrayBuffer} bytes
- * @returns {Uint8Array}
- */
-export function toUint8Array(bytes) {
-    if (bytes instanceof Uint8Array) {
-        return new Uint8Array(bytes)
-    }
-
-    // Mongoose `.lean()` skips casting, so a Buffer field comes back as a raw
-    // BSON Binary (the driver leaves subtype-0 binary un-promoted) rather than a
-    // Node Buffer. Its `length` is a method, so the Buffer.from() fallback below
-    // would silently yield an empty array and Yjs would fail to decode. Read the
-    // bytes off its backing Buffer, bounded by the Binary's real length.
-    if (bytes && bytes._bsontype === "Binary") {
-        const buf = bytes.buffer
-        return new Uint8Array(buf.buffer, buf.byteOffset, bytes.length())
-    }
-
-    return new Uint8Array(Buffer.from(bytes))
-}
 
 /**
  * Build the replica for a document from its persisted Yjs state.
@@ -328,7 +299,9 @@ export async function flushRoom(documentId) {
     }
 
     const state = Buffer.from(Y.encodeStateAsUpdate(entry.doc))
-    const content = entry.doc.getText(CONTENT_TEXT_NAME).toString()
+    // Lossy plaintext projection of the ProseMirror tree, for the dashboard,
+    // previews, and search. The encoded state above is the source of truth.
+    const content = docToPlainText(entry.doc)
 
     // Clear dirty *before* the await using a marker, so edits that land during
     // the write aren't lost: if the doc changes mid-flush it becomes dirty

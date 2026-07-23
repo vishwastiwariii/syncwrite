@@ -1,29 +1,20 @@
-import * as Y from "yjs";
 import Document from "../models/Document.js";
 import User from "../models/User.js";
 import { cacheDocument, getCachedDocument, invalidateDocument } from "./documentCache.js";
 import { canEditDocument, canShareDocument } from "./permission.service.js";
 import { getIo } from "../config/socket.js";
 import { invalidatePermission } from "../sockets/permission.cache.js";
-import { CONTENT_TEXT_NAME } from "../sockets/ydoc.manager.js";
-
-// Encode a plaintext body into the Yjs state a document opens with. Seeding
-// `state` at creation means the first editor loads the intended content through
-// the sync handshake instead of starting from an empty replica.
-function encodeInitialState(content) {
-    const doc = new Y.Doc();
-    if (content) {
-        doc.getText(CONTENT_TEXT_NAME).insert(0, content);
-    }
-    return Buffer.from(Y.encodeStateAsUpdate(doc));
-}
+import { encodeTextAsState } from "./ydocContent.js";
 
 export async function createDocument({ userId, title, content }) {
 
     const document = await Document.create({
         title,
         content,
-        state: encodeInitialState(content),
+        // Seed the Yjs state at creation (one `paragraph` per line) so the first
+        // editor loads the intended content through the sync handshake instead
+        // of starting from an empty replica.
+        state: encodeTextAsState(content),
         createdBy: userId
     })
 
@@ -52,6 +43,18 @@ export async function updateDocument({ documentId, title, userId }) {
     document.title = title;
     await document.save();
     await invalidateDocument(documentId)
+
+    // Push the rename to everyone currently in the document. The body syncs
+    // itself through Yjs, but the title is plain metadata on a REST path — with
+    // no broadcast, a collaborator keeps the title they fetched on mount and
+    // only sees the change after a reload.
+    //
+    // Broadcasting to the whole room is safe without a further permission
+    // check: membership is only granted after the view check at Y_JOIN.
+    getIo().to(String(documentId)).emit("DOCUMENT_METADATA", {
+        documentId: String(documentId),
+        title: document.title,
+    })
 
     return document;
 }
