@@ -142,28 +142,7 @@ export default function Hero() {
             See how it works
           </button>
         </div>
-
-        {/* ── Social proof ── */}
-        <div className="sw-anim sw-d5 mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <div className="flex -space-x-2.5">
-            {["#6c5ce7", "#e01e5a", "#2eb67d", "#f5a623", "#4285f4"].map((c, i) => (
-              <span
-                key={i}
-                className="h-8 w-8 rounded-full border-2 border-sw-bg"
-                style={{ background: c }}
-              />
-            ))}
-          </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1">
-              {Array.from({ length: 5 }).map((_, i) => <Star key={i} />)}
-              <span className="ml-1 text-[13px] font-semibold">4.9/5</span>
-            </div>
-            <p className="text-[13px] text-sw-muted">
-              Loved by 40,000+ writers who draft with AI
-            </p>
-          </div>
-        </div>
+        
       </div>
     </section>
   );

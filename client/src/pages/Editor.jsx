@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { documentService } from "../services/document.service";
+import { createSocket } from "../services/socket";
 import { useAuth } from "../hooks/useAuth";
 import { useCollaborativeDocument } from "../hooks/useCollaborativeDocument";
 import { useDebounceCallback } from "../hooks/useDebounce";
-import { bindTextareaToYText } from "../services/ydoc";
 import Sidebar from "../components/Sidebar";
 import ShareModal from "../components/ShareModal";
 import DocumentEditor from "../components/editor/DocumentEditor";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Editor page — owns metadata (title), sockets, and the CRDT binding.
+   Editor page — owns metadata (title) and the collaborative Y.Doc.
 
-   The document body is a Yjs shared type: concurrent edits merge, so there is
-   no version guard, no conflict banner, and no debounced whole-document push.
-   The title is still plain metadata saved over REST.
+   The document body is a Yjs shared type edited through Tiptap: concurrent
+   edits merge, so there is no version guard, no conflict banner, and no
+   debounced whole-document push. The title is still plain metadata saved over
+   REST. The editor UI (Tiptap instance, toolbar, word count) lives under
+   DocumentEditor → EditorSurface; this page only wires data in.
    ═══════════════════════════════════════════════════════════════════════ */
 export default function Editor() {
   const { id: documentId } = useParams();
@@ -29,23 +31,43 @@ export default function Editor() {
   const [activeNav, setActiveNav] = useState("All Documents");
   const [showShareModal, setShowShareModal] = useState(false);
 
-  /* ── Word-count mirror of the body. Not the textarea's value — the binding
-        owns that. This is display-only, updated when the shared text changes. ── */
-  const [bodyText, setBodyText] = useState("");
+  /* ── Live collaboration: the shared Y.Doc + Awareness and deduped presence. ── */
+  const { doc: ydoc, awareness, users, status } = useCollaborativeDocument(documentId, user);
 
-  const textareaRef = useRef(null);
-  const bindingRef = useRef(null);
-
-  /* ── Live collaboration: the shared body + deduped presence list. ── */
-  const { ytext, users, status } = useCollaborativeDocument(documentId, user);
+  /* The last title we pushed. The server broadcasts renames to the whole room,
+     including us — re-applying our own echo would overwrite whatever the user
+     has typed in the 600ms since the debounce fired. */
+  const lastSentTitleRef = useRef(null);
 
   const debouncedTitleUpdate = useDebounceCallback(async (newTitle) => {
     try {
+      lastSentTitleRef.current = newTitle;
       await documentService.updateDocument(documentId, { title: newTitle });
     } catch (err) {
       console.error("Failed to save title:", err);
     }
   }, 600);
+
+  /* ── Live title. The body is a CRDT and syncs itself; the title is metadata
+        on a REST path, so the server broadcasts it to the room and we apply it
+        here. Without this, a collaborator's rename only appears on reload.
+
+        Last-write-wins by design: if two people rename at once, the later save
+        stands (see the socket handler in document.service.js). ── */
+  useEffect(() => {
+    if (!documentId) return;
+
+    const socket = createSocket();
+
+    const onMetadata = ({ documentId: id, title: nextTitle }) => {
+      if (id !== documentId) return;
+      if (nextTitle === lastSentTitleRef.current) return; // our own echo
+      setTitle(nextTitle);
+    };
+
+    socket.on("DOCUMENT_METADATA", onMetadata);
+    return () => socket.off("DOCUMENT_METADATA", onMetadata);
+  }, [documentId]);
 
   /* ── Fetch title/metadata and confirm access. The body is NOT taken from
         here — it arrives via the Yjs sync handshake. ── */
@@ -68,27 +90,6 @@ export default function Editor() {
     fetchDocument();
   }, [fetchDocument]);
 
-  /* ── Bind the textarea to the shared type once both exist. The binding does
-        the two-way sync and caret preservation; we also mirror the text into
-        state for the word counter. ── */
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!ytext || !textarea) return;
-
-    const binding = bindTextareaToYText(textarea, ytext);
-    bindingRef.current = binding;
-
-    const syncBodyText = () => setBodyText(ytext.toString());
-    syncBodyText();
-    ytext.observe(syncBodyText);
-
-    return () => {
-      ytext.unobserve(syncBodyText);
-      binding.destroy();
-      bindingRef.current = null;
-    };
-  }, [ytext, loading]);
-
   /* ── Title change (metadata, REST). ── */
   const handleTitleChange = useCallback(
     (e) => {
@@ -99,11 +100,6 @@ export default function Editor() {
     [debouncedTitleUpdate]
   );
 
-  /* ── Formatting toolbar — edits the shared type via the binding. ── */
-  const handleFormat = useCallback((before, after) => {
-    bindingRef.current?.wrapSelection(before, after);
-  }, []);
-
   return (
     <div className="min-h-screen bg-sw-bg text-sw-ink">
       <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
@@ -111,21 +107,18 @@ export default function Editor() {
       <div className="ml-[240px] flex min-h-screen">
         <DocumentEditor
           title={title}
-          content={bodyText}
           updatedAt={doc?.updatedAt}
+          doc={ydoc}
+          awareness={awareness}
+          user={user}
           loading={loading}
           error={error}
           saving={status !== "synced"}
-          conflict={false}
           users={users}
           onTitleChange={handleTitleChange}
-          onContentChange={undefined}
-          onFormat={handleFormat}
           onBack={() => navigate("/dashboard")}
           onShare={() => setShowShareModal(true)}
           onRetry={fetchDocument}
-          onDismissConflict={() => {}}
-          textareaRef={textareaRef}
         />
       </div>
 

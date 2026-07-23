@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────
-   SyncWrite — Design System tokens (from SyncWrite.pdf)
+   SyncWrite — Design System
    Modern collaborative editor · violet accent on soft lavender.
    Consumed via arbitrary Tailwind values, e.g. bg-[var(--sw-bg)].
    ───────────────────────────────────────────────────────────── */
@@ -59,4 +59,118 @@ body {
   font-family: var(--font-sans);
   background: var(--color-sw-bg);
   color: var(--color-sw-ink);
+}
+
+/* ─── Tiptap / ProseMirror writing surface ──────────────────────────────
+   The body editor replaced a plain <textarea>; these rules restore its
+   typography and add the block styles the textarea never had. Scoped to
+   .sw-prose, applied via Tiptap's editorProps.attributes.class.          */
+.sw-prose {
+  min-height: calc(100vh - 360px);
+  font-size: 16.5px;
+  line-height: 1.75;
+  color: #33323b;
+  outline: none;
+}
+
+.sw-prose > * + * {
+  margin-top: 0.85em;
+}
+
+.sw-prose h1,
+.sw-prose h2,
+.sw-prose h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-sw-ink);
+  margin-top: 1.4em;
+}
+.sw-prose h1 { font-size: 1.75em; }
+.sw-prose h2 { font-size: 1.4em; }
+.sw-prose h3 { font-size: 1.18em; }
+
+.sw-prose ul,
+.sw-prose ol {
+  padding-left: 1.5em;
+}
+.sw-prose ul { list-style: disc; }
+.sw-prose ol { list-style: decimal; }
+.sw-prose li > p { margin: 0; }
+
+.sw-prose blockquote {
+  border-left: 3px solid var(--color-sw-violet-soft);
+  padding-left: 1em;
+  color: var(--color-sw-muted);
+  font-style: italic;
+}
+
+.sw-prose a {
+  color: var(--color-sw-violet);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.sw-prose code {
+  background: var(--color-sw-violet-2);
+  border-radius: 5px;
+  padding: 0.12em 0.35em;
+  font-size: 0.9em;
+}
+
+.sw-prose pre {
+  background: var(--color-sw-ink);
+  color: #f5f4f8;
+  border-radius: 10px;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+}
+.sw-prose pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+.sw-prose hr {
+  border: none;
+  border-top: 1px solid var(--color-sw-line);
+  margin: 1.6em 0;
+}
+
+/* Placeholder — shown on the first line while the document is empty. */
+.sw-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-sw-faint);
+}
+
+/* ─── Remote collaborator carets (CollaborationCaret) ───────────────────
+   A coloured caret at each peer's cursor with their name on hover/entry.
+   This is the thing a <textarea> structurally could not render.          */
+.collaboration-carets__caret {
+  border-left: 1px solid #0d0d0d;
+  border-right: 1px solid #0d0d0d;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
+}
+
+.collaboration-carets__label {
+  border-radius: 4px 4px 4px 0;
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  left: -1px;
+  line-height: normal;
+  padding: 0.1rem 0.35rem;
+  position: absolute;
+  top: -1.4em;
+  user-select: none;
+  white-space: nowrap;
 }

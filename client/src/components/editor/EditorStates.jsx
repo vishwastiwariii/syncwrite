@@ -37,24 +37,5 @@ export function EditorError({ message, onRetry }) {
   );
 }
 
-/* Shown when a remote write landed on top of our base version. */
-export function ConflictBanner({ onDismiss }) {
-  return (
-    <div className="mx-6 mt-4 flex items-center gap-3 rounded-xl border border-[#f5c451] bg-[#fdf6e3] px-4 py-3">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b8860b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-      <span className="flex-1 text-[12.5px] font-medium text-[#7a5c00]">
-        This document was updated by someone else. The latest version has been
-        loaded — re-apply your changes if needed.
-      </span>
-      <button
-        onClick={onDismiss}
-        className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.04em] text-[#b8860b] hover:text-[#7a5c00]"
-      >
-        Dismiss
-      </button>
-    </div>
-  );
-}
+/* Note: there is no ConflictBanner. The body is a CRDT — concurrent edits
+   merge, so there is no losing side to warn. */

@@ -1,17 +1,21 @@
 import React, { useEffect, useRef } from "react";
-import { formatDate, wordCount } from "../../utils/document";
+import { EditorContent } from "@tiptap/react";
+import { formatDate } from "../../utils/document";
 
-/* The writing surface: title, meta line, and the content textarea.
-   Purely presentational — every value and handler comes from the page. */
+/* The writing surface: title, meta line, and the Tiptap editor.
+
+   The body is a rich-text ProseMirror editor bound to Yjs (created by the
+   parent EditorSurface). Concurrent remote edits merge into it and remote
+   carets render inline — the plain <textarea> this replaced could do neither.
+   Word count is computed by the parent from the editor's plaintext. */
 export default function EditorCanvas({
+  editor,
   title,
-  content,
+  words = 0,
   updatedAt,
   users = [],
   onTitleChange,
-  textareaRef,
 }) {
-  const words = wordCount(content);
   const titleRef = useRef(null);
 
   /* Title is a textarea, not an input, so long titles wrap instead of being
@@ -46,16 +50,9 @@ export default function EditorCanvas({
 
       <div className="my-[26px] h-px bg-sw-line" />
 
-      {/* Body — uncontrolled: the Yjs binding owns the DOM value and caret so
-          concurrent remote edits merge without React resetting the field. The
-          `content` prop above is used only for the word count. */}
-      <textarea
-        ref={textareaRef}
-        defaultValue=""
-        placeholder="Start writing…"
-        aria-label="Document content"
-        className="min-h-[calc(100vh-360px)] w-full resize-none border-none bg-transparent text-[16.5px] leading-[1.75] text-[#33323B] outline-none placeholder:text-sw-faint"
-      />
+      {/* Body — the Tiptap/ProseMirror editor. The Collaboration extension owns
+          its content and caret via Yjs; React never resets it. */}
+      <EditorContent editor={editor} />
     </div>
   );
 }

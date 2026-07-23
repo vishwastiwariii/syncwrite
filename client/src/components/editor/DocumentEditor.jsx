@@ -1,35 +1,38 @@
 import React from "react";
 import EditorTopBar from "./EditorTopBar";
-import EditorCanvas from "./EditorCanvas";
-import FormatToolbar from "./FormatToolbar";
+import EditorSurface from "./EditorSurface";
 import CommentsRail from "./CommentsRail";
-import { EditorSkeleton, EditorError, ConflictBanner } from "./EditorStates";
+import { EditorSkeleton, EditorError } from "./EditorStates";
 
 /* ─── DocumentEditor ──────────────────────────────────────────────────────
    The whole editor surface (screen 08), composed from its parts. Holds no
-   data logic of its own — the page owns fetching, sockets, and the version
-   guard, and passes everything down. Mount it and hand it props.           */
+   data logic of its own — the page owns fetching, the collaborative Y.Doc, and
+   metadata saves, and passes everything down.
+
+   The body is a Yjs CRDT, so there is no version guard and no conflict state:
+   concurrent edits merge. EditorSurface mounts only once `doc`/`awareness` are
+   ready, so the Tiptap editor binds to a live doc from its first render.     */
 export default function DocumentEditor({
   /* content */
   title,
-  content,
   updatedAt,
+  /* collaboration */
+  doc,
+  awareness,
+  user,
   /* status */
   loading,
   error,
   saving,
-  conflict,
   users = [],
   /* handlers */
   onTitleChange,
-  onContentChange,
-  onFormat,
   onBack,
   onShare,
   onRetry,
-  onDismissConflict,
-  textareaRef,
 }) {
+  const ready = !loading && !error && doc && awareness;
+
   return (
     <section className="flex min-h-screen flex-1 flex-col bg-sw-surface">
       <EditorTopBar
@@ -40,27 +43,21 @@ export default function DocumentEditor({
         onShare={onShare}
       />
 
-      {loading ? (
+      {loading || (!ready && !error) ? (
         <EditorSkeleton />
       ) : error ? (
         <EditorError message={error} onRetry={onRetry} />
       ) : (
         <div className="flex flex-1">
-          {/* Writing surface */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            {conflict && <ConflictBanner onDismiss={onDismissConflict} />}
-            <EditorCanvas
-              title={title}
-              content={content}
-              updatedAt={updatedAt}
-              users={users}
-              onTitleChange={onTitleChange}
-              onContentChange={onContentChange}
-              textareaRef={textareaRef}
-            />
-            <FormatToolbar onFormat={onFormat} />
-          </div>
-
+          <EditorSurface
+            doc={doc}
+            awareness={awareness}
+            user={user}
+            title={title}
+            updatedAt={updatedAt}
+            users={users}
+            onTitleChange={onTitleChange}
+          />
           <CommentsRail />
         </div>
       )}
